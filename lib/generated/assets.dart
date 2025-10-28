@@ -7,7 +7,6 @@ class Assets {
   static const String assetsEnemySprite = 'assets/enemy_sprite.png';
   static const String assetsIcon = 'assets/cyclone.icon/Assets/icon.png';
   static const String assetsShipSpriteMoving = 'assets/ship_sprite_moving.png';
-  static const String assetsShipSpriteStationary = 'assets/ship_sprite_stationary.png';
-  static const String cyclone.iconIcon = 'assets/cyclone.icon/icon.json';
-
+  static const String assetsShipSpriteStationary =
+      'assets/ship_sprite_stationary.png';
 }

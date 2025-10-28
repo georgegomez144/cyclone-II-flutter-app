@@ -48,9 +48,8 @@ class EnemyMainShot extends PositionComponent with HasGameRef<CycloneGame> {
         duration: 0.5,
       )..position = player.position.clone();
       gameRef.add(explosion);
-      // Remove player visual from the world and set lives to 0
-      player.removeFromParent();
-      gameRef.gm.lives.value = 0;
+      // Delegate life/respawn handling to game
+      gameRef.onPlayerHit();
     }
   }
 

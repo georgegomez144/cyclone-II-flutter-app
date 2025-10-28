@@ -5,3 +5,4 @@
 - player's ship should not be able to pass through the enemy's shield but bounce off.
 - randomly spawn upgrades for the player to fly into (a glowing coin for player's full shields, a coin for points: random 1500, 3000, 4500, 9000)
 - every level increase should save the player's points/level/name to the leaderboard
+- after 'Game Over' wait 2 seconds and then go to the home screen, save the player's points/levels/name to the leaderboard

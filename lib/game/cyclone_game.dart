@@ -190,13 +190,121 @@ class CycloneGame extends FlameGame
   }
 
   void exitToHome() {
+    // Reset gameplay so next start is fresh from level 1
+    resetGameState();
     pauseEngine();
     overlays.remove('hud');
     overlays.remove('controls');
+    overlays.remove('instructions');
     overlays.add('home');
   }
 
   void returnToHome() {
     exitToHome();
+  }
+
+  // Handle player being destroyed by enemy fire
+  void onPlayerHit() {
+    if (_isRespawning || _levelTransitioning) return;
+
+    // Remove player visual if still mounted
+    if (player.isMounted) {
+      player.removeFromParent();
+    }
+
+    // Lose a life and decide next action
+    gm.loseLife();
+
+    if (gm.lives.value > 0) {
+      // Schedule respawn after 2 seconds at a random location
+      _isRespawning = true;
+      add(
+        TimerComponent(
+          period: 2.0,
+          removeOnFinish: true,
+          onTick: () {
+            // Re-add player if needed and place safely
+            if (!player.isMounted) {
+              add(player);
+            }
+            player.position = _randomSafeSpawn();
+            _isRespawning = false;
+          },
+        ),
+      );
+    } else {
+      // Game Over: remove enemy and show banner; starfield remains
+      _showGameOver();
+    }
+  }
+
+  void _showGameOver() {
+    // Remove any enemy and hostile projectiles
+    if (enemy != null && enemy!.isMounted) {
+      enemy!.removeFromParent();
+    }
+    enemy = null;
+    _removeAllProjectiles();
+
+    // Remove HUD/controls; keep engine running so starfield animates
+    overlays.remove('hud');
+    overlays.remove('controls');
+
+    // Show Game Over banner if not already
+    _gameOverBanner?.removeFromParent();
+    _gameOverBanner = TextComponent(
+      text: 'Game Over',
+      anchor: Anchor.center,
+      position: size / 2,
+      priority: 1000,
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          color: Colors.redAccent,
+          fontSize: 48,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+    add(_gameOverBanner!);
+  }
+
+  void resetGameState() {
+    // Clear transitions
+    _levelTransitioning = false;
+    _isRespawning = false;
+
+    // Clear banners
+    _gameOverBanner?.removeFromParent();
+    _gameOverBanner = null;
+
+    // Reset game model
+    gm.resetForNewGame();
+
+    // Ensure player is present and centered
+    if (!player.isMounted) {
+      add(player);
+    }
+    player
+      ..angle = 0
+      ..position = size / 2;
+
+    // Remove enemy and projectiles
+    if (enemy != null && enemy!.isMounted) {
+      enemy!.removeFromParent();
+    }
+    enemy = null;
+    _removeAllProjectiles();
+
+    // Respawn a fresh enemy at center for next game
+    // ignore: discarded_futures
+    _spawnEnemy();
+  }
+
+  void _removeAllProjectiles() {
+    // Remove player bullets
+    children.whereType<PlayerBullet>().forEach((c) => c.removeFromParent());
+    // Remove enemy blasts and main shots
+    children.whereType<EnemyBlast>().forEach((c) => c.removeFromParent());
+    children.whereType<EnemyMainShot>().forEach((c) => c.removeFromParent());
   }
 }
