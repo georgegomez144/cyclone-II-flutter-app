@@ -5,7 +5,6 @@ import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/game/game_manager.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class Player extends PositionComponent
@@ -19,6 +18,12 @@ class Player extends PositionComponent
   final double moveSpeed = 280; // px/sec
   Vector2 _keyMove = Vector2.zero();
   Vector2 _joyMove = Vector2.zero();
+  bool _isMoving = false;
+
+  // Visuals
+  late final SpriteComponent _spriteComp;
+  Sprite? _spriteStationary;
+  Sprite? _spriteMoving;
 
   Vector2 get _move {
     final v = _keyMove + _joyMove;
@@ -35,10 +40,22 @@ class Player extends PositionComponent
   @override
   Future<void> onLoad() async {
     await super.onLoad();
+
+    // Hitbox
     add(
       CircleHitbox.relative(0.6, parentSize: size)
         ..collisionType = CollisionType.passive,
     );
+
+    // Load sprites and attach sprite component
+    _spriteStationary = await Sprite.load('ship_sprite_stationary.png');
+    _spriteMoving = await Sprite.load('ship_sprite_moving.png');
+    _spriteComp = SpriteComponent(
+      sprite: _spriteStationary,
+      size: size.clone(),
+      anchor: Anchor.center,
+    );
+    add(_spriteComp);
   }
 
   @override
@@ -51,27 +68,28 @@ class Player extends PositionComponent
       position += dir * moveSpeed * dt;
       // Rotate ship to face movement direction (ship points up in local space)
       angle = math.atan2(dir.y, dir.x) + math.pi / 2;
+      if (!_isMoving) {
+        _isMoving = true;
+        if (_spriteMoving != null) _spriteComp.sprite = _spriteMoving;
+      }
+    } else {
+      if (_isMoving) {
+        _isMoving = false;
+        if (_spriteStationary != null) _spriteComp.sprite = _spriteStationary;
+      }
     }
 
-    // Clamp to game bounds
+    // Screen wrap-around
     final s = gameRef.size;
-    position.x = position.x.clamp(0 + size.x / 2, s.x - size.x / 2);
-    position.y = position.y.clamp(0 + size.y / 2, s.y - size.y / 2);
+    final halfW = size.x / 2;
+    final halfH = size.y / 2;
+    if (position.x < -halfW) position.x = s.x + halfW;
+    if (position.x > s.x + halfW) position.x = -halfW;
+    if (position.y < -halfH) position.y = s.y + halfH;
+    if (position.y > s.y + halfH) position.y = -halfH;
 
     // Cooldown
     if (_cooldown > 0) _cooldown -= dt;
-  }
-
-  @override
-  void render(Canvas canvas) {
-    // Draw a simple ship triangle pointing up
-    final paint = Paint()..color = Colors.amber; // match theme
-    final path = Path()
-      ..moveTo(0, -size.y / 2)
-      ..lineTo(size.x / 2, size.y / 2)
-      ..lineTo(-size.x / 2, size.y / 2)
-      ..close();
-    canvas.drawPath(path, paint);
   }
 
   // Joystick input (normalized -1..1 per axis)

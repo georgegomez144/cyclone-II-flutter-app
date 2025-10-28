@@ -1,0 +1,7 @@
+- [ ] player earns points by shooting the rings (1pt) and 100pts for destroying the enemey ship (one shot destroys enemy but can only shoot through opening in all three rings)
+- [ ] enemy and rings should should be a solid line (thickness 8) and glowing and remain in the center of the screen and spin around the enemy (outer clockwise, middle counter clockwise, center clockwise) the enemy should spin in the center of the screen to follow ship and shoot through gap in rings to hit the player's ship. one hit from the enemy explodes and destroys player's ship
+- [ ] player's ship shoots individual bullets (up to three at a time on screen)
+- [ ] player's ship should not be able to pass through the enemy's shield but bounce off.
+- [ ] use assets/ship_sprite_stationary.png for player's ship when not moving and assets/ship_sprite_moving.png when ship is moving
+- [ ] use assets/enemy_sprite.png for the enemy's ship
+- [ ] starting a new game should reset all rings | exiting game should reset game play

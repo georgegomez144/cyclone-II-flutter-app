@@ -169,7 +169,7 @@ Use `CollisionCallbacks` with `HitboxCircle` (bullets, mines) and `HitboxPolygon
 ---
 
 ### UI/Overlays
-- HUD: score (with multiplier), lives icons, shield bar.
+- HUD: score (with multiplier), lives icons, shield bar, plus a Pause/Exit controls row directly beneath the HUD (elements spaced by 12px).
 - Pause Menu: Resume, Restart, Quit.
 - Game Over: final score and retry.
 - Level Clear: summary and continue.
@@ -182,14 +182,15 @@ Use `CollisionCallbacks` with `HitboxCircle` (bullets, mines) and `HitboxPolygon
    - High Score list (max 5) and Last Player (editable name, shows last score/level). ✓
    - On-screen joystick (bottom-left) and FIRE button (bottom-right). ✓
    - Player rotation toward movement; up to 3 inline bullets from ship tip. ✓
-   - Starfield background (space dots). ✓
-2. Enemy & World Basics *
-   - Add Enemy Core placeholder at center with health.
-   - Begin shield ring geometry (dodecagon) and simple rendering.
-   - Hook bullets to collide with shield sections (gap creation).
-3. Game Loop & Persistence *
-   - Wire Game Over and submit to high scores; display on Home.
-   - Difficulty affects parameters; save/load settings and scores.
+   - Starfield background (static white dots). ✓
+2. Enemy Sprite (Center-Tracked) ✓
+   - Remove legacy enemy core and shield rings from gameplay. ✓
+   - Add a stationary enemy ship sprite pinned to screen center. ✓
+   - Enemy sprite rotates to face the player's ship each frame. ✓
+3. Visual & Loop Polish *
+   - Player ship uses stationary vs moving sprites depending on motion. ✓
+   - Review scoring and game reset flow with the new enemy setup. *
+   - Plan next interactions (e.g., simple enemy fire or collision rules) consistent with sprite-based enemy. *
 
 (✓ = implemented in this update; * = next focus)
 
@@ -245,6 +246,23 @@ class Player extends PositionComponent with KeyboardHandler, CollisionCallbacks 
 - Collisions: Enable PlayerBullet × ShieldSection to remove a section and the bullet (gap creation), no particles yet.
 
 ---
+
+### Recent Fixes (v1.7.1)
+- Fixed asset loading on all targets by setting Flame `images.prefix = 'assets/'` to match our asset layout; sprites now load from `assets/*.png` instead of the default `assets/images/*.png`.
+
+### Recent Updates (v1.7.0)
+- Removed legacy enemy core and shield rings from gameplay.
+- Added a new stationary enemy ship sprite pinned to the screen center that rotates to face the player's ship.
+- Player ship now uses `assets/ship_sprite_stationary.png` when idle and `assets/ship_sprite_moving.png` during movement.
+
+### Recent Updates (v1.6.0)
+- Enemy and shield rings render as solid glowing lines with 8px thickness; outer red (CW), middle orange (CCW), inner yellow (CW).
+- Enemy core remains centered on screen on resize and continuously rotates to face/follow the player's ship.
+- Main shot now fires only when a clear line exists through gaps across all three rings and is fatal to the player on hit (one-hit kill).
+- Added a quick glow-burst explosion effect on player destruction.
+
+### Recent Fixes (v1.5.1)
+- HUD pills now render side-by-side using a `Wrap` with spacing, preventing vertical stacking on narrow widths and improving responsiveness on tablet/web.
 
 ### Recent Fixes (v1.2.1)
 - Wrapped `GameWidget` in a `MaterialApp` + `Scaffold` to provide `MaterialLocalizations` and an `Overlay` ancestor, fixing TextField/Slider/ChoiceChip assertions on the Home screen.
