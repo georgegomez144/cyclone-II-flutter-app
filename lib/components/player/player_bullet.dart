@@ -13,8 +13,11 @@ class PlayerBullet extends PositionComponent
 
   final Vector2 velocity;
   final VoidCallback onDespawn;
-  final double speed = 520; // px/sec magnitude of velocity vector
-  double lifetime = 2.0; // seconds
+  final double speed = 800; // px/sec magnitude of velocity vector
+  double lifetime = 2.4; // seconds
+
+  // Internal flag to prevent multiple collisions in the same frame
+  bool consumed = false;
 
   @override
   Future<void> onLoad() async {
@@ -57,16 +60,22 @@ class PlayerBullet extends PositionComponent
     PositionComponent other,
   ) {
     super.onCollisionStart(intersectionPoints, other);
+    // If this bullet has already been consumed by a shield segment, ignore.
+    if (consumed || isRemoving) return;
     if (other is EnemySprite) {
-      // Spawn explosion at enemy position
-      final boom = Explosion()..position = other.position.clone();
-      gameRef.add(boom);
-
-      // Notify game of victory and remove enemy
-      gameRef.onEnemyDefeated();
-
-      // Despawn this bullet
-      removeFromParent();
+      // Only destroy enemy if there are aligned gaps through all rings
+      final canHitCore = other.hasAlignedGapsToward(position);
+      if (canHitCore) {
+        // Spawn explosion at enemy position
+        final boom = Explosion()..position = other.position.clone();
+        gameRef.add(boom);
+        // Notify game of victory and remove enemy
+        gameRef.onEnemyDefeated();
+        // Despawn this bullet
+        removeFromParent();
+      } else {
+        // Otherwise, the shield should intercept the bullet; do nothing here.
+      }
     }
   }
 

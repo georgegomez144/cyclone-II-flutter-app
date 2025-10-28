@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:cyclone_game/components/enemy/enemy_blast.dart';
+import 'package:cyclone_game/components/enemy/shield_system.dart';
 import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
@@ -14,6 +15,8 @@ import 'package:flame/components.dart';
 class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
   EnemySprite() : super(size: Vector2.all(60), anchor: Anchor.center);
 
+  EnemyShield? _shield;
+
   // Turning/aiming
   final double _baseTurnRate = 0.8; // rad/sec at level 1 (pretty slow)
   final double _turnRatePerLevel = 0.02; // small increase per level
@@ -21,6 +24,8 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
   // Firing control
   final math.Random _rnd = math.Random();
   double _timeUntilNextShot = 0.0;
+
+  VoidCallback? _levelListener;
 
   @override
   Future<void> onLoad() async {
@@ -35,6 +40,24 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
         ..collisionType = CollisionType.passive,
     );
 
+    // Install shield system using the existing visual radii
+    final double rYellow = size.x * 1.4;
+    final double rOrange = rYellow * 1.35;
+    final double rRed = rOrange * 1.25;
+    _shield = EnemyShield(
+      yellowRadius: rYellow,
+      orangeRadius: rOrange,
+      redRadius: rRed,
+      strokeWidth: 4,
+    )..position = Vector2(size.x / 2, size.y / 2);
+    add(_shield!);
+
+    // Reset shields on level change only
+    _levelListener = () {
+      _shield?.resetAll();
+    };
+    gameRef.gm.currentLevel.addListener(_levelListener!);
+
     _resetShotTimer();
   }
 
@@ -43,6 +66,7 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
     super.onGameResize(size);
     // Keep enemy pinned in center on resize
     position = gameRef.size / 2;
+    // Shield stays centered because it's a child at (size/2)
   }
 
   @override
@@ -81,115 +105,18 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-
-    // Draw a 12-sided glowing yellow ring around the enemy (4px thick)
-    // Ensure the ring is centered on the sprite's anchor (component center)
-    const int sides = 12;
-    final double r = size.x * 1.4; // slightly larger than sprite center
-
-    canvas.save();
-    // Translate local origin (top-left) to component center so the ring is centered
-    canvas.translate(size.x / 2, size.y / 2);
-
-    // Outer red ring (25% larger than orange)
-    final double rOuter = r * 1.35; // orange radius
-    final double rRed = rOuter * 1.25; // red radius = r * 1.5625
-
-    final Path redRingPath = Path();
-    for (int i = 0; i < sides; i++) {
-      final double theta = (i / sides) * math.pi * 2 - math.pi / 2; // start top
-      final double x = rRed * math.cos(theta);
-      final double y = rRed * math.sin(theta);
-      if (i == 0) {
-        redRingPath.moveTo(x, y);
-      } else {
-        redRingPath.lineTo(x, y);
-      }
-    }
-    redRingPath.close();
-
-    final Paint redGlowPaint = Paint()
-      ..color = const Color(0xFFFF0000)
-          .withOpacity(0.9) // red
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 10);
-
-    final Paint redRingPaint = Paint()
-      ..color =
-          const Color(0xFFFF0000) // red
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
-
-    // Outer orange ring (25% larger than yellow)
-    final Path outerRingPath = Path();
-    for (int i = 0; i < sides; i++) {
-      final double theta = (i / sides) * math.pi * 2 - math.pi / 2; // start top
-      final double x = rOuter * math.cos(theta);
-      final double y = rOuter * math.sin(theta);
-      if (i == 0) {
-        outerRingPath.moveTo(x, y);
-      } else {
-        outerRingPath.lineTo(x, y);
-      }
-    }
-    outerRingPath.close();
-
-    final Paint outerGlowPaint = Paint()
-      ..color = const Color(0xFFFFA500)
-          .withOpacity(0.9) // orange
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 10);
-
-    final Paint outerRingPaint = Paint()
-      ..color =
-          const Color(0xFFFFA500) // orange
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
-
-    // Inner yellow ring (original)
-    final Path ringPath = Path();
-    for (int i = 0; i < sides; i++) {
-      final double theta = (i / sides) * math.pi * 2 - math.pi / 2; // start top
-      final double x = r * math.cos(theta);
-      final double y = r * math.sin(theta);
-      if (i == 0) {
-        ringPath.moveTo(x, y);
-      } else {
-        ringPath.lineTo(x, y);
-      }
-    }
-    ringPath.close();
-
-    final Paint glowPaint = Paint()
-      ..color = const Color(0xFFFFFF00)
-          .withOpacity(0.95) // yellow
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 10);
-
-    final Paint ringPaint = Paint()
-      ..color = const Color(0xFFFFFF00)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
-
-    // Draw order: outermost red → orange → inner yellow (each: glow then stroke)
-    canvas.drawPath(redRingPath, redGlowPaint);
-    canvas.drawPath(redRingPath, redRingPaint);
-
-    canvas.drawPath(outerRingPath, outerGlowPaint);
-    canvas.drawPath(outerRingPath, outerRingPaint);
-
-    canvas.drawPath(ringPath, glowPaint);
-    canvas.drawPath(ringPath, ringPaint);
-
-    canvas.restore();
+    // Visual rings are now rendered by EnemyShield child component.
   }
 
   void _fireAtPlayer() {
     final player = gameRef.player;
     if (!player.isMounted) return;
+
+    // Only fire if there are aligned gaps across all rings toward the player
+    final canShoot =
+        _shield?.canFireTowardGlobal(position, player.position) ?? false;
+    if (!canShoot) return;
+
     final dir = (player.position - position).normalized();
     final blast = EnemyBlast(
       start: position.clone(),
@@ -204,6 +131,20 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
   void _resetShotTimer() {
     // Minimum 5s, plus up to ~5s randomness
     _timeUntilNextShot = 5.0 + _rnd.nextDouble() * 5.0;
+  }
+
+  bool hasAlignedGapsToward(Vector2 worldPoint) {
+    return _shield?.canFireTowardGlobal(position, worldPoint) ?? false;
+  }
+
+  @override
+  void onRemove() {
+    // Clean listener
+    if (_levelListener != null) {
+      gameRef.gm.currentLevel.removeListener(_levelListener!);
+      _levelListener = null;
+    }
+    super.onRemove();
   }
 
   static double _wrapAngle(double a) {

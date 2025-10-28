@@ -15,7 +15,7 @@ class Player extends PositionComponent
   final GameManager gm;
 
   // Movement
-  final double moveSpeed = 280; // px/sec
+  final double moveSpeed = 400; // px/sec
   Vector2 _keyMove = Vector2.zero();
   Vector2 _joyMove = Vector2.zero();
   bool _isMoving = false;
@@ -53,7 +53,7 @@ class Player extends PositionComponent
     _spriteComp = SpriteComponent(
       sprite: _spriteStationary,
       size: size.clone(),
-      anchor: Anchor.center,
+      anchor: Anchor.topLeft,
     );
     add(_spriteComp);
   }
@@ -161,7 +161,7 @@ class Player extends PositionComponent
     // spawn 3 bullets with small offsets along direction if capacity allows
     for (int i = 0; i < 3; i++) {
       if (_activeBullets >= maxSimultaneousBullets) break;
-      _spawnBullet(dir, offsetAlongNose: i * 10.0);
+      _spawnBullet(dir, offsetAlongNose: i + 0);
     }
   }
 
@@ -182,6 +182,6 @@ class Player extends PositionComponent
   // Fire exactly one bullet immediately, ignoring cooldown and bullet caps.
   void fireSingleNoLimit() {
     final dir = Vector2(0, -1)..rotate(angle);
-    _spawnBullet(dir, offsetAlongNose: 0);
+    _spawnBullet(dir, offsetAlongNose: -15);
   }
 }
