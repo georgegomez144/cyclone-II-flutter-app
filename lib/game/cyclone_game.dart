@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cyclone_game/components/enemy/enemy_sprite.dart';
+import 'package:cyclone_game/components/enemy/enemy_core.dart';
 import 'package:cyclone_game/components/enemy/enemy_blast.dart';
 import 'package:cyclone_game/components/enemy/enemy_main_shot.dart';
 import 'package:cyclone_game/components/player/player.dart';
@@ -86,11 +87,10 @@ class CycloneGame extends FlameGame
   }
 
   Future<void> _spawnEnemy() async {
-    // Remove existing enemy if still mounted
-    if (enemy != null && enemy!.isMounted) {
-      enemy!.removeFromParent();
-    }
-    // Create and center enemy
+    // Strong singleton guarantee: remove ALL enemy instances before spawning
+    _removeAllEnemies();
+
+    // Create and center a single enemy
     final e = EnemySprite()
       ..position = size / 2
       ..anchor = Anchor.center;
@@ -129,6 +129,9 @@ class CycloneGame extends FlameGame
 
     // Increment level
     gm.currentLevel.value = gm.currentLevel.value + 1;
+
+    // Save progress to leaderboard on each level increase
+    gm.submitHighScore(level: gm.currentLevel.value);
 
     // After a delay, remove banner, respawn enemy and reposition player safely
     add(
@@ -239,11 +242,8 @@ class CycloneGame extends FlameGame
   }
 
   void _showGameOver() {
-    // Remove any enemy and hostile projectiles
-    if (enemy != null && enemy!.isMounted) {
-      enemy!.removeFromParent();
-    }
-    enemy = null;
+    // Remove any enemy instances and hostile projectiles
+    _removeAllEnemies();
     _removeAllProjectiles();
 
     // Remove HUD/controls; keep engine running so starfield animates
@@ -266,6 +266,20 @@ class CycloneGame extends FlameGame
       ),
     );
     add(_gameOverBanner!);
+
+    // After 2 seconds, save to leaderboard and go to home screen
+    add(
+      TimerComponent(
+        period: 2.0,
+        removeOnFinish: true,
+        onTick: () {
+          // Submit final score/level/name to leaderboard
+          gm.submitHighScore(level: gm.currentLevel.value);
+          // Navigate back to home
+          exitToHome();
+        },
+      ),
+    );
   }
 
   void resetGameState() {
@@ -288,16 +302,24 @@ class CycloneGame extends FlameGame
       ..angle = 0
       ..position = size / 2;
 
-    // Remove enemy and projectiles
-    if (enemy != null && enemy!.isMounted) {
-      enemy!.removeFromParent();
-    }
-    enemy = null;
+    // Remove enemies and projectiles
+    _removeAllEnemies();
     _removeAllProjectiles();
 
     // Respawn a fresh enemy at center for next game
     // ignore: discarded_futures
     _spawnEnemy();
+  }
+
+  void _removeAllEnemies() {
+    // Remove tracked enemy reference if mounted
+    if (enemy != null && enemy!.isMounted) {
+      enemy!.removeFromParent();
+    }
+    // Remove any stray EnemySprite or EnemyCore instances in the tree
+    children.whereType<EnemySprite>().forEach((c) => c.removeFromParent());
+    children.whereType<EnemyCore>().forEach((c) => c.removeFromParent());
+    enemy = null;
   }
 
   void _removeAllProjectiles() {

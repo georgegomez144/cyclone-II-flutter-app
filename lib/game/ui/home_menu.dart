@@ -94,8 +94,6 @@ class _HomeMenuState extends State<HomeMenu> {
                     ),
                     const SizedBox(height: 24),
                     _settings(gm),
-                    const SizedBox(height: 24),
-                    _lastPlayerSummary(gm),
                   ],
                 ),
               ),
@@ -111,8 +109,10 @@ class _HomeMenuState extends State<HomeMenu> {
       a: gm.lastPlayerName,
       b: gm.lastScore,
       c: gm.lastLevel,
-      builder: (context, name, score, level) => Column(
+      builder: (context, name, score, level) => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
+        spacing: 12,
         children: [
           const Text(
             'Last Player',
@@ -123,7 +123,6 @@ class _HomeMenuState extends State<HomeMenu> {
             ),
           ),
           const SizedBox(height: 6),
-          Text('Name: $name', style: const TextStyle(color: Colors.amber)),
           Text('Score: $score', style: const TextStyle(color: Colors.amber)),
           Text('Level: $level', style: const TextStyle(color: Colors.amber)),
         ],
@@ -155,24 +154,68 @@ class _HomeMenuState extends State<HomeMenu> {
             else
               Column(
                 children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      spacing: 12,
+                      children: [
+                        Text(
+                          'Rank',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: Colors.amber),
+                        ),
+                        Text(
+                          'Name',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: Colors.amber),
+                        ),
+                        const SizedBox(width: 32),
+                        Text(
+                          'Score',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: Colors.amber),
+                        ),
+                        Text(
+                          'Level',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: Colors.amber),
+                        ),
+                      ],
+                    ),
+                  ),
                   for (int i = 0; i < list.length && i < 5; i++)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2.0),
-                      child: Text(
-                        '${i + 1}. ${list[i].name} — ${list[i].score} (L${list[i].level})',
-                        style: const TextStyle(color: Colors.amber),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        spacing: 12,
+                        children: [
+                          Text(
+                            '${i + 1}.',
+                            style: const TextStyle(color: Colors.amber),
+                          ),
+                          Text(
+                            list[i].name,
+                            style: const TextStyle(color: Colors.amber),
+                          ),
+                          const SizedBox(width: 32),
+                          Text(
+                            '${list[i].score}',
+                            style: const TextStyle(color: Colors.amber),
+                          ),
+                          Text(
+                            '${list[i].level}',
+                            style: const TextStyle(color: Colors.amber),
+                          ),
+                        ],
                       ),
                     ),
                 ],
               ),
-            const SizedBox(height: 12),
-            ValueListenableBuilder<String>(
-              valueListenable: gm.lastPlayerName,
-              builder: (context, last, _) => Text(
-                'Last Player: $last',
-                style: const TextStyle(color: Colors.amberAccent),
-              ),
-            ),
+
+            const SizedBox(height: 24),
+            _lastPlayerSummary(gm),
           ],
         );
       },
@@ -216,15 +259,6 @@ class _HomeMenuState extends State<HomeMenu> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Settings',
-          style: TextStyle(
-            color: Colors.amber,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
         // Volume
         ValueListenableBuilder<double>(
           valueListenable: gm.volume,
