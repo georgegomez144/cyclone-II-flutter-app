@@ -1,8 +1,6 @@
-import 'package:flame/components.dart';
 import 'package:flame/collisions.dart';
+import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
-
-import 'package:cyclone_game/game/game_manager.dart';
 
 /// Simple player bullet that flies straight with a lifetime
 class PlayerBullet extends PositionComponent with CollisionCallbacks {

@@ -1,4 +1,4 @@
-# Cyclone II (Flutter + Flame)
+# Cyclone (Flutter + Flame)
 
 Recreating the classic single-screen Cyclone II arcade gameplay with modern UX, built with Flutter and the Flame game engine. Focused on a tight core loop: move, shoot, open gaps in rotating shields, thread shots to the enemy core, avoid mines, and dodge a telegraphed fatal main shot.
 

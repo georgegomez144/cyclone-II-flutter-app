@@ -1,14 +1,12 @@
 import 'dart:math' as math;
 
-import 'package:flame/components.dart';
-import 'package:flame/events.dart';
-import 'package:flame/collisions.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter/material.dart';
-
-import 'package:cyclone_game/game/game_manager.dart';
 import 'package:cyclone_game/components/player/player_bullet.dart';
 import 'package:cyclone_game/game/cyclone_game.dart';
+import 'package:cyclone_game/game/game_manager.dart';
+import 'package:flame/collisions.dart';
+import 'package:flame/components.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class Player extends PositionComponent
     with KeyboardHandler, CollisionCallbacks, HasGameRef<CycloneGame> {
@@ -19,13 +17,20 @@ class Player extends PositionComponent
 
   // Movement
   final double moveSpeed = 280; // px/sec
-  Vector2 _move = Vector2.zero();
+  Vector2 _keyMove = Vector2.zero();
+  Vector2 _joyMove = Vector2.zero();
+
+  Vector2 get _move {
+    final v = _keyMove + _joyMove;
+    if (v.length2 > 1) return v.normalized();
+    return v;
+  }
 
   // Shooting
-  int maxSimultaneousBullets = 1;
+  int maxSimultaneousBullets = 3;
   int _activeBullets = 0;
   double _cooldown = 0;
-  final double bulletCooldown = 0.18; // seconds
+  final double bulletCooldown = 0.15; // seconds
 
   @override
   Future<void> onLoad() async {
@@ -42,7 +47,10 @@ class Player extends PositionComponent
 
     // Move
     if (_move.length2 > 0) {
-      position += _move.normalized() * moveSpeed * dt;
+      final dir = _move.normalized();
+      position += dir * moveSpeed * dt;
+      // Rotate ship to face movement direction (ship points up in local space)
+      angle = math.atan2(dir.y, dir.x) + math.pi / 2;
     }
 
     // Clamp to game bounds
@@ -57,7 +65,7 @@ class Player extends PositionComponent
   @override
   void render(Canvas canvas) {
     // Draw a simple ship triangle pointing up
-    final paint = Paint()..color = Colors.cyanAccent;
+    final paint = Paint()..color = Colors.amber; // match theme
     final path = Path()
       ..moveTo(0, -size.y / 2)
       ..lineTo(size.x / 2, size.y / 2)
@@ -66,8 +74,13 @@ class Player extends PositionComponent
     canvas.drawPath(path, paint);
   }
 
+  // Joystick input (normalized -1..1 per axis)
+  void setMoveFromJoystick(Vector2 vec) {
+    _joyMove = vec.clone();
+  }
+
   @override
-  bool onKeyEvent(RawKeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+  bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
     // Movement via arrows or WASD
     final left =
         keysPressed.contains(LogicalKeyboardKey.arrowLeft) ||
@@ -82,7 +95,7 @@ class Player extends PositionComponent
         keysPressed.contains(LogicalKeyboardKey.arrowDown) ||
         keysPressed.contains(LogicalKeyboardKey.keyS);
 
-    _move
+    _keyMove
       ..setValues(0, 0)
       ..x += left ? -1 : 0
       ..x += right ? 1 : 0
@@ -101,23 +114,42 @@ class Player extends PositionComponent
     return true;
   }
 
+  // Fire a single shot forward from the tip
   void tryFire() {
     if (_activeBullets >= maxSimultaneousBullets) return;
     if (_cooldown > 0) return;
 
     _cooldown = bulletCooldown;
 
-    // Shoot toward screen center (enemy core placeholder)
-    final target = gameRef.size / 2;
-    final dir = (target - position);
-    if (dir.length2 == 0) return;
+    // Forward direction based on current angle (ship points up in local space)
+    final dir = Vector2(0, -1)..rotate(angle);
+    _spawnBullet(dir, offsetAlongNose: 0);
+  }
 
+  // Fire up to 3 inline bullets from the tip
+  void tryFireBurst() {
+    if (_cooldown > 0) return;
+    if (_activeBullets >= maxSimultaneousBullets) return;
+
+    _cooldown = bulletCooldown * 1.2;
+
+    final dir = Vector2(0, -1)..rotate(angle);
+    // spawn 3 bullets with small offsets along direction if capacity allows
+    for (int i = 0; i < 3; i++) {
+      if (_activeBullets >= maxSimultaneousBullets) break;
+      _spawnBullet(dir, offsetAlongNose: i * 10.0);
+    }
+  }
+
+  void _spawnBullet(Vector2 dir, {double offsetAlongNose = 0}) {
+    final spawnPos =
+        position + (dir.normalized() * (size.y / 2 + 4 + offsetAlongNose));
     final bullet = PlayerBullet(
       velocity: dir,
       onDespawn: () {
         _activeBullets = math.max(0, _activeBullets - 1);
       },
-    )..position = position.clone();
+    )..position = spawnPos;
 
     _activeBullets += 1;
     gameRef.add(bullet);

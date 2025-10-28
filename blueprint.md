@@ -1,4 +1,4 @@
-### Cyclone II (Flutter + Flame) — Technical Blueprint
+### Cyclone (Flutter + Flame) — Technical Blueprint
 
 #### Goals
 - Recreate the classic single‑screen Cyclone II arcade gameplay with modern UX.
@@ -176,36 +176,22 @@ Use `CollisionCallbacks` with `HitboxCircle` (bullets, mines) and `HitboxPolygon
 
 ---
 
-### Milestone Roadmap (Iterative Build)
-1. Project Bootstrap ✓
-    - Flame set up, black screen (done in your repo).
-2. Player Core*
-    - Player component, 8‑way movement, keyboard + joystick abstraction.
-    - Bullet firing with cap (default 1), cooldown, bullet lifetime.
-3. Enemy Skeleton*
-    - Core component (triangle), positioned center; basic health; no attack.
-4. Shield Rings*
-    - Three dodecagonal rings with 12 sections each; geometry + rendering.
-5. Collisions: Bullets vs Shield Sections*
-    - Destroy section and bullet; create gap; spawn particles; chance for Yummy.
-6. Collisions: Bullets vs Core*
-    - Damage core through existing gaps only; implement visibility/line‑of‑sight check through rings.
-7. Game State & HUD*
-    - `GameManager` with score/lives/shield; HUD overlay bound to state.
-8. Mines (Basic)*
-    - Spawn, attach to shield, detach, seek player; collide with player.
-9. Player Shields & Damage*
-    - Implement shield depletion −24% per mine; death if zero; respawn sequence.
-10. Enemy Main Shot*
-    - Fire only through valid gap; fatal on hit; telegraph.
-11. Win/Loss*
-    - Level clear on core death; game over when lives = 0; screens.
-12. Yummies (Upgrades)*
-    - All pickup types and effects; “Lock” to persist upgrades on death.
-13. Polish & Tuning
-    - SFX, particles, difficulty scaling, starfield, UX, settings.
+### Current Sprints (max 3)
+1. Core Play Controls ✓
+   - Home screen with title 'Cyclone' and centered layout; black bg, amber text, red buttons. ✓
+   - High Score list (max 5) and Last Player (editable name, shows last score/level). ✓
+   - On-screen joystick (bottom-left) and FIRE button (bottom-right). ✓
+   - Player rotation toward movement; up to 3 inline bullets from ship tip. ✓
+   - Starfield background (space dots). ✓
+2. Enemy & World Basics *
+   - Add Enemy Core placeholder at center with health.
+   - Begin shield ring geometry (dodecagon) and simple rendering.
+   - Hook bullets to collide with shield sections (gap creation).
+3. Game Loop & Persistence *
+   - Wire Game Over and submit to high scores; display on Home.
+   - Difficulty affects parameters; save/load settings and scores.
 
-(⭐ = current focus next)
+(✓ = implemented in this update; * = next focus)
 
 ---
 
@@ -254,8 +240,12 @@ class Player extends PositionComponent with KeyboardHandler, CollisionCallbacks 
 ---
 
 ### Next Steps (Actionable)
-- Create `lib/game/cyclone_game.dart` and move `CycloneGame` there.
-- Implement `Player` with keyboard movement and single bullet firing cap.
-- Add basic HUD overlay with score/lives/shield placeholders.
+- Enemy Skeleton: Add `EnemyCore` component at center with simple triangle render and basic health (no attack yet).
+- Shield Rings: Implement three dodecagonal rings (geometry + render placeholders) with 12 sections each.
+- Collisions: Enable PlayerBullet × ShieldSection to remove a section and the bullet (gap creation), no particles yet.
 
-If you’d like, I can scaffold the files for Milestone 2 and wire up the player input in small, reviewable steps.
+---
+
+### Recent Fixes (v1.2.1)
+- Wrapped `GameWidget` in a `MaterialApp` + `Scaffold` to provide `MaterialLocalizations` and an `Overlay` ancestor, fixing TextField/Slider/ChoiceChip assertions on the Home screen.
+- Hardened `SharedPreferences` access in `GameManager` with try/catch to avoid crashes on iOS/macOS hot‑restart (`MissingPluginException`); app now continues with defaults and logs the issue. A full app restart resolves the plugin state.
