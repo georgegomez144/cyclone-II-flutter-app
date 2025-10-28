@@ -35,6 +35,7 @@ class GameManager {
   final score = ValueNotifier<int>(0);
   final lives = ValueNotifier<int>(3);
   final shields = ValueNotifier<double>(100);
+  final currentLevel = ValueNotifier<int>(1);
 
   // Settings/state
   final difficulty = ValueNotifier<Difficulty>(Difficulty.challenging);
@@ -133,6 +134,7 @@ class GameManager {
     score.value = 0;
     lives.value = 3;
     shields.value = 100;
+    currentLevel.value = 1;
   }
 
   void submitHighScore({required int level}) {

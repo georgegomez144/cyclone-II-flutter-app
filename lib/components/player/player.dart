@@ -10,7 +10,7 @@ import 'package:flutter/services.dart';
 class Player extends PositionComponent
     with KeyboardHandler, CollisionCallbacks, HasGameRef<CycloneGame> {
   Player({required this.gm})
-    : super(size: Vector2(26, 26), anchor: Anchor.center);
+    : super(size: Vector2(52, 52), anchor: Anchor.center);
 
   final GameManager gm;
 
@@ -70,12 +70,18 @@ class Player extends PositionComponent
       angle = math.atan2(dir.y, dir.x) + math.pi / 2;
       if (!_isMoving) {
         _isMoving = true;
-        if (_spriteMoving != null) _spriteComp.sprite = _spriteMoving;
+        if (_spriteMoving != null) {
+          _spriteComp.sprite = _spriteMoving;
+          _spriteComp.size = size.clone() * 1.2;
+        }
       }
     } else {
       if (_isMoving) {
         _isMoving = false;
-        if (_spriteStationary != null) _spriteComp.sprite = _spriteStationary;
+        if (_spriteStationary != null) {
+          _spriteComp.sprite = _spriteStationary;
+          _spriteComp.size = size.clone() * 1;
+        }
       }
     }
 
@@ -171,5 +177,11 @@ class Player extends PositionComponent
 
     _activeBullets += 1;
     gameRef.add(bullet);
+  }
+
+  // Fire exactly one bullet immediately, ignoring cooldown and bullet caps.
+  void fireSingleNoLimit() {
+    final dir = Vector2(0, -1)..rotate(angle);
+    _spawnBullet(dir, offsetAlongNose: 0);
   }
 }

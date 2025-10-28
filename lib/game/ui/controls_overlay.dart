@@ -85,7 +85,7 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
 
   Widget _buildFireButton() {
     return GestureDetector(
-      onTapDown: (_) => widget.game.player.tryFireBurst(),
+      onTap: () => widget.game.player.fireSingleNoLimit(),
       child: Container(
         width: 96,
         height: 96,

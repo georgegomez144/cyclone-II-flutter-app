@@ -1,7 +1,5 @@
 # Project Guidelines
 
-- update blueprint.md with implemented features and remove completed sprints adding new ones (max of 3 sprints)
-
 ## Versioning and pubspec.yaml updates
 
 Every change to this repository must be accompanied by a version update in pubspec.yaml.

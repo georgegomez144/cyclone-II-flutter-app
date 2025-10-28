@@ -46,6 +46,31 @@ class _HudOverlayState extends State<HudOverlay> {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
+                      // Level
+                      ValueListenableBuilder<int>(
+                        valueListenable: widget.game.gm.currentLevel,
+                        builder: (_, value, __) => _pill(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.rocket_launch,
+                                color: Colors.amber,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Level: $value',
+                                style: const TextStyle(
+                                  color: Colors.amber,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       // Score (with potential multiplier later)
                       ValueListenableBuilder<int>(
                         valueListenable: widget.game.gm.score,
