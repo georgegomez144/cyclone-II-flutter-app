@@ -18,6 +18,16 @@ class Assets {
   static const String assetsSparkMineSprite = 'assets/spark_mine_sprite.png';
   static const String assetsSplashscreen = 'assets/splashscreen.png';
   static const String assetsYummySprite = 'assets/yummy_sprite.png';
+  static const String audioBackgroundHum = 'assets/audio/background_hum.mp3';
+  static const String audioBegin = 'assets/audio/begin.mp3';
+  static const String audioEnemyBlast = 'assets/audio/enemy_blast.mp3';
+  static const String audioEnemyExplode = 'assets/audio/enemy_explode.mp3';
+  static const String audioMineBuzzing = 'assets/audio/mine_buzzing.mp3';
+  static const String audioMineExplode = 'assets/audio/mine_explode.mp3';
+  static const String audioPlayerExplode = 'assets/audio/player_explode.mp3';
+  static const String audioPlayerShot = 'assets/audio/player_shot.mp3';
+  static const String audioYouLose = 'assets/audio/you_lose.mp3';
+  static const String audioYummyFx = 'assets/audio/yummy_fx.mp3';
   static const String redHatTextOFL =
       'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/OFL.txt';
   static const String redHatTextREADME =
