@@ -62,6 +62,17 @@ class SparkMine extends SpriteComponent
     super.update(dt);
     if (dt <= 0) return;
 
+    // Difficulty multipliers
+    final diff = gameRef.gm.difficulty.value;
+    final double mul = switch (diff) {
+      Difficulty.boring => 0.7,
+      Difficulty.challenging => 1.0,
+      Difficulty.frustrating => 1.5,
+    };
+    final double dMaxSpeed = maxSpeed * mul;
+    final double dAccel = accel * mul;
+    final double dOrbit = orbitSpeed * mul;
+
     // If enemy exists and we are near any of its shield rings, orbit around
     final enemy = gameRef.enemy;
     bool orbited = false;
@@ -92,7 +103,7 @@ class SparkMine extends SpriteComponent
           }
           // close to ring path -> ride along tangentially
           final tangential = Vector2(-toEnemy.y, toEnemy.x).normalized();
-          position += tangential * orbitSpeed * dt;
+          position += tangential * dOrbit * dt;
           orbited = true;
           break;
         }
@@ -104,10 +115,10 @@ class SparkMine extends SpriteComponent
       final player = gameRef.player;
       if (player.isMounted) {
         final desired = (player.position - position).normalized();
-        _velocity += desired * accel * dt;
+        _velocity += desired * dAccel * dt;
         final speed = _velocity.length;
-        if (speed > maxSpeed) {
-          _velocity = _velocity.normalized() * maxSpeed;
+        if (speed > dMaxSpeed) {
+          _velocity = _velocity.normalized() * dMaxSpeed;
         }
         position += _velocity * dt;
       }

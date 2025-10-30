@@ -56,34 +56,42 @@ class _HomeMenuState extends State<HomeMenu> {
                     const SizedBox(height: 16),
                     _lastPlayer(gm),
                     const SizedBox(height: 24),
-                    Column(
-                      spacing: 12,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    Wrap(
+                      alignment: WrapAlignment.start,
+                      runAlignment: WrapAlignment.start,
+                      crossAxisAlignment: WrapCrossAlignment.start,
+                      spacing: 24,
+                      runSpacing: 24,
                       children: [
-                        _redButton(
-                          label: 'Start New Game',
-                          onPressed: () {
-                            gm.savePrefs();
-                            widget.game.startGame();
-                          },
-                        ),
-                        _redButton(
-                          label: 'Instructions',
-                          onPressed: () {
-                            widget.game.overlays.remove('home');
-                            widget.game.overlays.add('instructions');
-                          },
-                        ),
-                        _redButton(
-                          label: 'Clear High Score List',
-                          onPressed: () {
-                            gm.clearHighScores();
-                          },
+                        _settings(gm),
+                        Column(
+                          spacing: 12,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _redButton(
+                              label: 'Start New Game',
+                              onPressed: () {
+                                gm.savePrefs();
+                                widget.game.startGame();
+                              },
+                            ),
+                            _redButton(
+                              label: 'Instructions',
+                              onPressed: () {
+                                widget.game.overlays.remove('home');
+                                widget.game.overlays.add('instructions');
+                              },
+                            ),
+                            _redButton(
+                              label: 'Clear High Score List',
+                              onPressed: () {
+                                gm.clearHighScores();
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    // const SizedBox(height: 24),
-                    // _settings(gm),
                   ],
                 ),
               ),
@@ -289,63 +297,67 @@ class _HomeMenuState extends State<HomeMenu> {
   }
 
   Widget _settings(GameManager gm) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Volume
-        ValueListenableBuilder<double>(
-          valueListenable: gm.volume,
-          builder: (context, vol, _) => Row(
-            children: [
-              const Text('Volume', style: TextStyle(color: Colors.amber)),
-              Expanded(
-                child: Slider(
-                  value: vol,
-                  onChanged: (v) => gm.volume.value = v,
-                  onChangeEnd: (_) => gm.savePrefs(),
-                  activeColor: Colors.red,
-                  inactiveColor: Colors.red.shade200,
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: 400),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Volume
+          ValueListenableBuilder<double>(
+            valueListenable: gm.volume,
+            builder: (context, vol, _) => Row(
+              children: [
+                const Text('Volume', style: TextStyle(color: Colors.amber)),
+                Expanded(
+                  child: Slider(
+                    value: vol,
+                    onChanged: (v) => gm.volume.value = v,
+                    onChangeEnd: (_) => gm.savePrefs(),
+                    activeColor: Colors.deepOrange,
+                    inactiveColor: Colors.amber.shade200,
+                    thumbColor: Colors.red,
+                  ),
                 ),
-              ),
-              Text(
-                (vol * 100).round().toString(),
-                style: const TextStyle(color: Colors.amber),
-              ),
-            ],
+                Text(
+                  (vol * 100).round().toString(),
+                  style: const TextStyle(color: Colors.amber),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        // Difficulty
-        ValueListenableBuilder<Difficulty>(
-          valueListenable: gm.difficulty,
-          builder: (context, diff, _) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Difficulty', style: TextStyle(color: Colors.amber)),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final option in Difficulty.values)
-                    ChoiceChip(
-                      label: Text(
-                        _diffLabel(option),
-                        style: const TextStyle(color: Colors.black),
+          const SizedBox(height: 8),
+          // Difficulty
+          ValueListenableBuilder<Difficulty>(
+            valueListenable: gm.difficulty,
+            builder: (context, diff, _) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Difficulty', style: TextStyle(color: Colors.amber)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final option in Difficulty.values)
+                      ChoiceChip(
+                        label: Text(
+                          _diffLabel(option),
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                        selected: diff == option,
+                        selectedColor: Colors.red,
+                        backgroundColor: Colors.red.shade200,
+                        onSelected: (_) {
+                          gm.difficulty.value = option;
+                          gm.savePrefs();
+                        },
                       ),
-                      selected: diff == option,
-                      selectedColor: Colors.red,
-                      backgroundColor: Colors.red.shade200,
-                      onSelected: (_) {
-                        gm.difficulty.value = option;
-                        gm.savePrefs();
-                      },
-                    ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -361,15 +373,45 @@ class _HomeMenuState extends State<HomeMenu> {
   }
 
   Widget _redButton({required String label, required VoidCallback onPressed}) {
-    return TextButton(
-      style: ButtonStyle(
-        foregroundColor: WidgetStatePropertyAll(Colors.red),
-        backgroundColor: WidgetStatePropertyAll(
-          Colors.red.withValues(alpha: 0.15),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.red.shade800, Colors.amber],
+        ),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          width: 2,
+          color: Colors.red.shade600.withValues(alpha: 0.6),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(2, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onPressed,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ),
       ),
-      onPressed: onPressed,
-      child: Text(label),
     );
   }
 }

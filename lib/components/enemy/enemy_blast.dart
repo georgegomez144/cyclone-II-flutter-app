@@ -98,15 +98,27 @@ class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
       final playerRadius = player.size.length / 4; // ~13
       if (!_hitApplied && dist <= blastRadius + playerRadius) {
         _hitApplied = true;
-        final explosion = Explosion(
-          color: Colors.deepOrangeAccent,
-          maxRadius: 48,
-          duration: 0.5,
-        )..position = player.position.clone();
-        gameRef.add(explosion);
-        // Delegate life/respawn handling to game
-        gameRef.onPlayerHit();
-        removeFromParent();
+        if (player.oneHitShieldActive) {
+          // Consume shield and fizzle the blast with a light effect
+          player.consumeOneHitShield();
+          final explosion = Explosion(
+            color: Colors.lightBlueAccent,
+            maxRadius: 36,
+            duration: 0.35,
+          )..position = player.position.clone();
+          gameRef.add(explosion);
+          removeFromParent();
+        } else {
+          final explosion = Explosion(
+            color: Colors.deepOrangeAccent,
+            maxRadius: 48,
+            duration: 0.5,
+          )..position = player.position.clone();
+          gameRef.add(explosion);
+          // Delegate life/respawn handling to game
+          gameRef.onPlayerHit();
+          removeFromParent();
+        }
       }
     }
   }

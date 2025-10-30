@@ -5,6 +5,7 @@ import 'package:cyclone_game/components/enemy/enemy_blast.dart';
 import 'package:cyclone_game/components/enemy/shield_system.dart';
 import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/utils.dart';
+import 'package:cyclone_game/game/game_manager.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 
@@ -81,8 +82,16 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
         final current = angle;
         var delta = _wrapAngle(desired - current);
         final level = gameRef.gm.currentLevel.value;
-        final turnRate =
+        var turnRate =
             _baseTurnRate + _turnRatePerLevel * (level - 1).clamp(0, 999);
+        // Difficulty scaling: boring < challenging < frustrating
+        final diff = gameRef.gm.difficulty.value;
+        final diffMul = switch (diff) {
+          Difficulty.boring => 0.7,
+          Difficulty.challenging => 1.0,
+          Difficulty.frustrating => 1.6,
+        };
+        turnRate *= diffMul;
         final maxStep = turnRate * dt;
         if (delta.abs() > maxStep) {
           delta = delta.sign * maxStep;

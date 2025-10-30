@@ -197,6 +197,53 @@ class _HudOverlayState extends State<HudOverlay> {
                                             letterSpacing: 0.5,
                                           ),
                                         ),
+                                        const SizedBox(width: 6),
+                                        // Countdown for timed Triple+Auto power-up
+                                        ValueListenableBuilder<double>(
+                                          valueListenable: widget
+                                              .game
+                                              .gm
+                                              .tripleAutoRemaining,
+                                          builder: (_, seconds, __) {
+                                            if (seconds <= 0)
+                                              return const SizedBox.shrink();
+                                            return Text(
+                                              '(${seconds.ceil()}s)',
+                                              style: const TextStyle(
+                                                color: Colors.cyanAccent,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // Lock Yummy indicator
+                                        ValueListenableBuilder<bool>(
+                                          valueListenable:
+                                              widget.game.gm.keepYummiesOnDeath,
+                                          builder: (_, locked, __) {
+                                            if (!locked)
+                                              return const SizedBox.shrink();
+                                            return Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: const [
+                                                Icon(
+                                                  Icons.lock,
+                                                  size: 14,
+                                                  color: Colors.grey,
+                                                ),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'Locked',
+                                                  style: TextStyle(
+                                                    color: Colors.grey,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        ),
                                       ],
                                     );
                                   },

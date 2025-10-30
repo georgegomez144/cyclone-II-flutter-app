@@ -30,6 +30,8 @@ class CycloneGame extends FlameGame
   // Spawner timers
   double _pickupSpawnTimer = 0;
   double _mineSpawnTimer = 0;
+  // Auto-fire timer for TripleAutoYummy to ensure hands-free firing
+  double _tripleAutoFireTimer = 0;
 
   @override
   Color backgroundColor() => const Color(0xFF000000);
@@ -38,6 +40,16 @@ class CycloneGame extends FlameGame
   void update(double dt) {
     super.update(dt);
     if (_levelTransitioning) return;
+
+    // Tick timed Triple+Auto weapon override and auto-revert when finished
+    gm.tickTripleAuto(
+      dt,
+      restorePlayer: () {
+        // Restore previous player weapon flags
+        player.hasContinuousFire = gm.prevHasContinuous;
+        player.hasTripleSpread = gm.prevHasTriple;
+      },
+    );
 
     // Timed spawns for pickups and mines while playing
     _pickupSpawnTimer += dt;
@@ -391,9 +403,9 @@ class CycloneGame extends FlameGame
     final current = children.whereType<YummyPickup>().length;
     if (current >= 2) return;
 
-    // Randomly choose among pickups: Shield, Points, Life, ContinuousFire, TripleSpread
+    // Randomly choose among pickups: Shield, Points, Life, ContinuousFire, TripleSpread, TripleAuto, Lock
     final rnd = math.Random();
-    final int r = rnd.nextInt(5);
+    final int r = rnd.nextInt(7);
     YummyPickup comp;
     switch (r) {
       case 0:
@@ -408,8 +420,14 @@ class CycloneGame extends FlameGame
       case 3:
         comp = ContinuousFireYummy();
         break;
-      default:
+      case 4:
         comp = TripleSpreadYummy();
+        break;
+      case 5:
+        comp = LockYummy();
+        break;
+      default:
+        comp = TripleAutoYummy();
         break;
     }
 

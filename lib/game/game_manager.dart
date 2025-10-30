@@ -40,6 +40,52 @@ class GameManager {
   final currentLevel = ValueNotifier<int>(1);
   // Player firing mode for HUD
   final currentBulletMode = ValueNotifier<BulletMode>(BulletMode.single);
+  // Persist yummies across death when true (granted by Lock Yummy)
+  final keepYummiesOnDeath = ValueNotifier<bool>(false);
+
+  // Timed weapon override: Triple + Continuous for a limited duration
+  final tripleAutoRemaining = ValueNotifier<double>(
+    0,
+  ); // seconds left; 0=inactive
+  bool tripleAutoActive = false;
+  // Previous weapon state to restore after TripleAuto ends
+  BulletMode prevBulletMode = BulletMode.single;
+  bool prevHasContinuous = false;
+  bool prevHasTriple = false;
+
+  void startTripleAuto({
+    required double durationSeconds,
+    required void Function() applyToPlayer,
+    required void Function() restorePlayer,
+  }) {
+    // Save previous weapon state for restore callback to use
+    prevBulletMode = currentBulletMode.value;
+    // Activate and set remaining time
+    tripleAutoActive = true;
+    tripleAutoRemaining.value = durationSeconds;
+    // Apply immediate player changes via callback
+    applyToPlayer();
+  }
+
+  void tickTripleAuto(double dt, {required void Function() restorePlayer}) {
+    if (!tripleAutoActive) return;
+    tripleAutoRemaining.value = (tripleAutoRemaining.value - dt).clamp(0, 600);
+    if (tripleAutoRemaining.value <= 0) {
+      tripleAutoActive = false;
+      // Restore player state
+      restorePlayer();
+      // Restore HUD bullet mode to previous
+      currentBulletMode.value = prevBulletMode;
+    }
+  }
+
+  void cancelTripleAuto({required void Function() restorePlayer}) {
+    if (!tripleAutoActive) return;
+    tripleAutoActive = false;
+    tripleAutoRemaining.value = 0;
+    restorePlayer();
+    currentBulletMode.value = prevBulletMode;
+  }
 
   // Settings/state
   final difficulty = ValueNotifier<Difficulty>(Difficulty.challenging);
@@ -166,6 +212,8 @@ class GameManager {
     lives.value = 3;
     shields.value = 100;
     currentLevel.value = 1;
+    // Reset Lock Yummy effect at the start of a new game
+    keepYummiesOnDeath.value = false;
   }
 
   void submitHighScore({required int level}) {

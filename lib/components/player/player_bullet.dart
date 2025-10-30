@@ -15,7 +15,7 @@ class PlayerBullet extends PositionComponent
   final Vector2 velocity;
   final VoidCallback onDespawn;
   final double speed = 800; // px/sec magnitude of velocity vector
-  double lifetime = 1.0; // seconds
+  double lifetime = 1.5; // seconds
 
   // Internal flag to prevent multiple collisions in the same frame
   bool consumed = false;
@@ -28,7 +28,7 @@ class PlayerBullet extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    final paint = Paint()..color = Colors.white;
+    final paint = Paint()..color = Colors.amberAccent;
     canvas.drawCircle(Offset.zero, size.x / 2, paint);
   }
 

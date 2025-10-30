@@ -41,15 +41,25 @@ class EnemyMainShot extends PositionComponent with HasGameRef<CycloneGame> {
     final playerRadius = player.size.length / 4; // ~13
     if (!_hitApplied && dist <= playerRadius) {
       _hitApplied = true;
-      // Fatal hit: destroy player's ship (one hit)
-      final explosion = Explosion(
-        color: Colors.redAccent,
-        maxRadius: 48,
-        duration: 0.5,
-      )..position = player.position.clone();
-      gameRef.add(explosion);
-      // Delegate life/respawn handling to game
-      gameRef.onPlayerHit();
+      if (player.oneHitShieldActive) {
+        player.consumeOneHitShield();
+        final explosion = Explosion(
+          color: Colors.lightBlueAccent,
+          maxRadius: 36,
+          duration: 0.35,
+        )..position = player.position.clone();
+        gameRef.add(explosion);
+      } else {
+        // Fatal hit: destroy player's ship (one hit)
+        final explosion = Explosion(
+          color: Colors.redAccent,
+          maxRadius: 48,
+          duration: 0.5,
+        )..position = player.position.clone();
+        gameRef.add(explosion);
+        // Delegate life/respawn handling to game
+        gameRef.onPlayerHit();
+      }
     }
   }
 

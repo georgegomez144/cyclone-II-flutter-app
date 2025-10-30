@@ -7,6 +7,7 @@ import 'package:cyclone_game/utils.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/services.dart';
+import 'dart:ui' as ui;
 
 class Player extends PositionComponent
     with KeyboardHandler, CollisionCallbacks, HasGameRef<CycloneGame> {
@@ -23,6 +24,7 @@ class Player extends PositionComponent
   // Power-ups
   bool hasContinuousFire = false; // hold to auto-fire
   bool hasTripleSpread = false; // fire 3-way spread
+  bool oneHitShieldActive = false; // absorbs a single enemy blast
 
   // Input hold states
   bool _uiFireHeld = false;
@@ -30,13 +32,18 @@ class Player extends PositionComponent
 
   void kill() {
     isAlive = false;
-    // Lose transient power-ups upon death
-    hasContinuousFire = false;
-    hasTripleSpread = false;
+    // Lose transient power-ups upon death unless Lock Yummy is active
+    final keep = gm.keepYummiesOnDeath.value;
+    if (!keep) {
+      hasContinuousFire = false;
+      hasTripleSpread = false;
+      oneHitShieldActive = false;
+      _refreshShieldGlow();
+      // Reset HUD bullet mode
+      gm.currentBulletMode.value = BulletMode.single;
+    }
     _uiFireHeld = false;
     _kbFireHeld = false;
-    // Reset HUD bullet mode
-    gm.currentBulletMode.value = BulletMode.single;
   }
 
   void revive() {
@@ -47,13 +54,26 @@ class Player extends PositionComponent
     // Fire not held on revive
     _uiFireHeld = false;
     _kbFireHeld = false;
-    // Ensure HUD bullet mode is reset
-    gm.currentBulletMode.value = BulletMode.single;
+
+    // If timed TripleAuto is still active, ensure triple+auto are applied
+    if (gm.tripleAutoActive) {
+      hasTripleSpread = true;
+      hasContinuousFire = true;
+      gm.currentBulletMode.value = BulletMode.triple;
+    } else {
+      // Otherwise, only reset HUD to Single if we are not keeping yummies
+      if (!gm.keepYummiesOnDeath.value) {
+        gm.currentBulletMode.value = BulletMode.single;
+      }
+    }
+
+    // Re-apply shield glow based on flag
+    _refreshShieldGlow();
   }
 
   // Movement (space-physics)
-  final double maxSpeed = 520; // px/sec cap
-  final double acceleration = 900; // px/sec^2 when input held
+  final double maxSpeed = isPhone ? 460 : 520; // px/sec cap
+  final double acceleration = 1200; // px/sec^2 when input held
   final double damping = 0.98; // per-second damping when no input
   Vector2 _velocity = Vector2.zero();
   Vector2 _keyMove = Vector2.zero();
@@ -64,6 +84,29 @@ class Player extends PositionComponent
   late final SpriteComponent _spriteComp;
   Sprite? _spriteStationary;
   Sprite? _spriteMoving;
+  CircleComponent? _shieldGlow;
+
+  void _refreshShieldGlow() {
+    if (_shieldGlow == null) return;
+    if (oneHitShieldActive) {
+      if (_shieldGlow!.parent == null) {
+        add(_shieldGlow!);
+      }
+    } else {
+      _shieldGlow!.removeFromParent();
+    }
+  }
+
+  void setOneHitShield(bool active) {
+    oneHitShieldActive = active;
+    _refreshShieldGlow();
+  }
+
+  void consumeOneHitShield() {
+    if (!oneHitShieldActive) return;
+    oneHitShieldActive = false;
+    _refreshShieldGlow();
+  }
 
   Vector2 get _move {
     final v = _keyMove + _joyMove;
@@ -72,10 +115,10 @@ class Player extends PositionComponent
   }
 
   // Shooting
-  int maxSimultaneousBullets = 6;
+  int maxSimultaneousBullets = 3;
   int _activeBullets = 0;
   double _cooldown = 0;
-  final double bulletCooldown = 0.15; // seconds
+  final double bulletCooldown = 0.1; // seconds
 
   // Expose limited interaction for collisions
   void handleShieldImpact(Vector2 outwardNormal) {
@@ -100,6 +143,19 @@ class Player extends PositionComponent
       CircleHitbox.relative(0.6, parentSize: size)
         ..collisionType = CollisionType.passive,
     );
+
+    // Shield glow visual (managed via _refreshShieldGlow)
+    _shieldGlow =
+        CircleComponent(
+            radius: size.x * 0.7,
+            anchor: Anchor.center,
+            paint: ui.Paint()
+              ..color = const ui.Color(0x5880D8FF)
+              ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.outer, 16),
+          )
+          ..position = size / 2
+          ..priority = -1;
+    // Not added by default; shown when oneHitShieldActive
 
     // Load sprites and attach sprite component
     _spriteStationary = await Sprite.load('ship_sprite_stationary.png');
@@ -148,17 +204,18 @@ class Player extends PositionComponent
       angle = math.atan2(dir.y, dir.x) + math.pi / 2;
     }
 
-    // Continuous fire works only while the fire control is held AND the upgrade is active,
-    // and only in single-shot mode (not with Triple Spread).
+    // Continuous fire works only while the fire control is held AND the upgrade is active.
+    // Allows continuous fire for both single and triple modes when enabled.
     final bool holdingFire = _uiFireHeld || _kbFireHeld;
-    if (hasContinuousFire && !hasTripleSpread && holdingFire) {
+    if (hasContinuousFire && holdingFire) {
       tryFire();
     }
 
-    // Update moving visual state based on speed
-    final isNowMoving = _velocity.length2 > 1.0;
-    if (isNowMoving != _isMoving) {
-      _isMoving = isNowMoving;
+    // Update moving visual state based on INPUT (not velocity):
+    // When joystick/keys are released, show stationary sprite even if ship coasts.
+    final bool inputPresent = input.length2 > 0;
+    if (inputPresent != _isMoving) {
+      _isMoving = inputPresent;
       if (_isMoving) {
         if (_spriteMoving != null) {
           _spriteComp.sprite = _spriteMoving;
@@ -244,24 +301,28 @@ class Player extends PositionComponent
     if (!isAlive) return;
 
     // Throttle using shared cooldown and capacity
-    if (_activeBullets >= maxSimultaneousBullets) return;
+    if (!hasContinuousFire) {
+      if (_activeBullets >= maxSimultaneousBullets) return;
+    } else {
+      if (_activeBullets >= 20) return;
+    }
     if (_cooldown > 0) return;
 
-    _cooldown = bulletCooldown; // 150 ms between shots for all modes
+    _cooldown = bulletCooldown; // 100 ms between shots for all modes
 
     // Forward direction based on current angle (ship points up in local space)
     final baseDir = Vector2(0, -1)..rotate(angle);
 
     if (hasTripleSpread) {
       // Fire 3 bullets with slight spread angles, respecting capacity
-      final double spreadRad = 12 * math.pi / 200;
+      final double spreadRad = 12 * math.pi / 220;
       final dirs = <Vector2>[
         baseDir.clone()..rotate(-spreadRad),
         baseDir.clone(),
         baseDir.clone()..rotate(spreadRad),
       ];
       for (final d in dirs) {
-        if (_activeBullets >= maxSimultaneousBullets) break;
+        if (_activeBullets >= 6) break;
         _spawnBullet(d, offsetAlongNose: 0);
       }
     } else {
@@ -284,14 +345,14 @@ class Player extends PositionComponent
   void tryFireBurst() {
     if (!isAlive) return;
     if (_cooldown > 0) return;
-    if (_activeBullets >= maxSimultaneousBullets) return;
+    if (_activeBullets >= 3) return;
 
     _cooldown = bulletCooldown * 0;
 
     final dir = Vector2(0, -1)..rotate(angle);
     // spawn 3 bullets with small offsets along direction if capacity allows
     for (int i = 0; i < 3; i++) {
-      if (_activeBullets >= maxSimultaneousBullets) break;
+      if (_activeBullets >= 3) break;
       _spawnBullet(dir, offsetAlongNose: i + 0);
     }
   }

@@ -5,6 +5,7 @@ import 'package:cyclone_game/game/game_manager.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// Base pickup component rendered with the `assets/yummy_sprite.png` sprite.
 /// Provides a small floating + flipping animation and handles collision
@@ -48,10 +49,10 @@ abstract class YummyPickup extends SpriteComponent
       paint.colorFilter = ColorFilter.mode(colorTint!, BlendMode.modulate);
     }
 
-    // Auto-despawn after 10 seconds if not collected
+    // Auto-despawn after 20 seconds if not collected
     add(
       TimerComponent(
-        period: 10.0,
+        period: 20.0,
         removeOnFinish: true,
         onTick: () {
           if (!isRemoving) {
@@ -147,8 +148,35 @@ class ShieldYummy extends YummyPickup {
   ShieldYummy() : super(colorTint: Colors.yellowAccent.withOpacity(0.9));
 
   @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    // Shield icon
+    final iconChar = String.fromCharCode(Icons.shield.codePoint);
+    add(
+      TextComponent(
+        text: iconChar,
+        anchor: Anchor.center,
+        position: Vector2(size.x / 2, size.y / 2),
+        priority: 10,
+        textRenderer: TextPaint(
+          style: TextStyle(
+            fontFamily: Icons.shield.fontFamily,
+            package: Icons.shield.fontPackage,
+            fontSize: 28,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  String floatingText() => 'Shield +1';
+
+  @override
   void applyEffect(GameManager gm) {
-    gm.refillShield(100); // full
+    // Grants a single-hit shield that blocks one enemy blast.
+    gameRef.player.setOneHitShield(true);
   }
 }
 
@@ -284,5 +312,89 @@ class TripleSpreadYummy extends YummyPickup {
     gameRef.player.hasTripleSpread = true;
     gameRef.player.hasContinuousFire = false;
     gm.currentBulletMode.value = BulletMode.triple;
+  }
+}
+
+/// Grants triple bullets + continuous auto-fire for 60 seconds, then reverts.
+class TripleAutoYummy extends YummyPickup {
+  TripleAutoYummy() : super(colorTint: Colors.cyanAccent.withOpacity(0.9));
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    add(
+      TextComponent(
+        text: '3x∞',
+        anchor: Anchor.center,
+        position: Vector2(size.x / 2, size.y / 2),
+        priority: 10,
+        textRenderer: TextPaint(
+          style: const TextStyle(
+            fontSize: 22,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  String floatingText() => 'Triple Auto 60s';
+
+  @override
+  void applyEffect(GameManager gm) {
+    final player = gameRef.player;
+    // Save previous flags to restore later
+    gm.prevHasContinuous = player.hasContinuousFire;
+    gm.prevHasTriple = player.hasTripleSpread;
+    gm.prevBulletMode = gm.currentBulletMode.value;
+
+    gm.startTripleAuto(
+      durationSeconds: 60,
+      applyToPlayer: () {
+        player.hasTripleSpread = true;
+        player.hasContinuousFire = true; // ensure continuous
+        gm.currentBulletMode.value = BulletMode.triple;
+      },
+      restorePlayer: () {
+        player.hasContinuousFire = gm.prevHasContinuous;
+        player.hasTripleSpread = gm.prevHasTriple;
+      },
+    );
+  }
+}
+
+class LockYummy extends YummyPickup {
+  LockYummy() : super(colorTint: Colors.grey.withOpacity(0.85));
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    final iconChar = String.fromCharCode(Icons.lock.codePoint);
+    add(
+      TextComponent(
+        text: iconChar,
+        anchor: Anchor.center,
+        position: Vector2(size.x / 2, size.y / 2),
+        priority: 10,
+        textRenderer: TextPaint(
+          style: TextStyle(
+            fontFamily: Icons.lock.fontFamily,
+            package: Icons.lock.fontPackage,
+            fontSize: 28,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  String floatingText() => 'Lock On';
+
+  @override
+  void applyEffect(GameManager gm) {
+    gm.keepYummiesOnDeath.value = true;
   }
 }

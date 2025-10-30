@@ -20,6 +20,7 @@ class Assets {
   static const String assetsYummySprite = 'assets/yummy_sprite.png';
   static const String audioBackgroundHum = 'assets/audio/background_hum.mp3';
   static const String audioBegin = 'assets/audio/begin.mp3';
+  static const String audioDontWantIt = 'assets/audio/dont_want_it.mp3';
   static const String audioEnemyBlast = 'assets/audio/enemy_blast.mp3';
   static const String audioEnemyExplode = 'assets/audio/enemy_explode.mp3';
   static const String audioMineBuzzing = 'assets/audio/mine_buzzing.mp3';
