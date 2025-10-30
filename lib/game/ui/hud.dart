@@ -1,4 +1,5 @@
 import 'package:cyclone_game/game/cyclone_game.dart';
+import 'package:cyclone_game/game/game_manager.dart';
 import 'package:flutter/material.dart';
 
 class HudOverlay extends StatefulWidget {
@@ -156,6 +157,50 @@ class _HudOverlayState extends State<HudOverlay> {
                                   '${value.toStringAsFixed(0)}%',
                                   style: const TextStyle(color: Colors.amber),
                                 ),
+                                const SizedBox(width: 10),
+                                // Bullet mode indicator on the right side of the shield bar
+                                ValueListenableBuilder<BulletMode>(
+                                  valueListenable:
+                                      widget.game.gm.currentBulletMode,
+                                  builder: (context, mode, __) {
+                                    IconData icon;
+                                    String label;
+                                    switch (mode) {
+                                      case BulletMode.auto:
+                                        icon = Icons.more_vert;
+                                        label = 'Auto';
+                                        break;
+                                      case BulletMode.triple:
+                                        icon = Icons.workspaces;
+                                        label = 'Triple';
+                                        break;
+                                      case BulletMode.single:
+                                      default:
+                                        icon = Icons.circle;
+                                        label = 'Single';
+                                        break;
+                                    }
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          icon,
+                                          size: 14,
+                                          color: Colors.amber,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          label,
+                                          style: const TextStyle(
+                                            color: Colors.amber,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
                               ],
                             ),
                           ),
@@ -163,35 +208,6 @@ class _HudOverlayState extends State<HudOverlay> {
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 12),
-                // Control buttons row under HUD, aligned to right
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _togglePause,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.amber,
-                        foregroundColor: Colors.black,
-                      ),
-                      icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
-                      label: Text(_paused ? 'Resume' : 'Pause'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        if (_paused) widget.game.resumeGame();
-                        widget.game.exitToHome();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                      ),
-                      icon: const Icon(Icons.exit_to_app),
-                      label: const Text('Exit'),
-                    ),
-                  ],
                 ),
               ],
             ),

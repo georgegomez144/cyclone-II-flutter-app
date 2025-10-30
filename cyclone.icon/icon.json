@@ -6,11 +6,17 @@
     {
       "layers" : [
         {
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : "automatic"
+            }
+          ],
           "glass" : true,
-          "image-name" : "IMG_0715 2.jpg",
-          "name" : "IMG_0715 2",
+          "image-name" : "cyclone_icon.png",
+          "name" : "cyclone_icon",
           "position" : {
-            "scale" : 1.4,
+            "scale" : 1.3,
             "translation-in-points" : [
               0,
               0

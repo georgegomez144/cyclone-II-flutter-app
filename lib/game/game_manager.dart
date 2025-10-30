@@ -30,12 +30,16 @@ class HighScoreEntry {
 }
 
 /// GameManager holds reactive game state, settings, and high scores.
+enum BulletMode { single, auto, triple }
+
 class GameManager {
   // Gameplay state
   final score = ValueNotifier<int>(0);
   final lives = ValueNotifier<int>(3);
   final shields = ValueNotifier<double>(100);
   final currentLevel = ValueNotifier<int>(1);
+  // Player firing mode for HUD
+  final currentBulletMode = ValueNotifier<BulletMode>(BulletMode.single);
 
   // Settings/state
   final difficulty = ValueNotifier<Difficulty>(Difficulty.challenging);
@@ -112,6 +116,28 @@ class GameManager {
     }
   }
 
+  // Save only the leaderboard-related fields: player name, score, level, and list
+  Future<void> saveScoresOnly() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _prefsKeyScores,
+        jsonEncode(highScores.value.map((e) => e.toJson()).toList()),
+      );
+      await prefs.setString(_prefsKeyPlayer, lastPlayerName.value);
+      await prefs.setInt(_prefsKeyLastScore, lastScore.value);
+      await prefs.setInt(_prefsKeyLastLevel, lastLevel.value);
+    } on MissingPluginException catch (e) {
+      debugPrint(
+        'SharedPreferences MissingPluginException (scores only): ${e.message}',
+      );
+    } on PlatformException catch (e) {
+      debugPrint('SharedPreferences PlatformException (scores only): $e');
+    } catch (e) {
+      debugPrint('SharedPreferences save error (scores only): $e');
+    }
+  }
+
   void addScore(int base, {int multiplier = 1}) {
     score.value += base * multiplier;
   }
@@ -128,6 +154,11 @@ class GameManager {
     if (lives.value > 0) {
       lives.value = lives.value - 1;
     }
+  }
+
+  void gainLife({int amount = 1, int maxLives = 9}) {
+    final next = (lives.value + amount).clamp(0, maxLives);
+    lives.value = next;
   }
 
   void resetForNewGame() {
@@ -148,7 +179,8 @@ class GameManager {
     final list = [...highScores.value, entry];
     list.sort((a, b) => b.score.compareTo(a.score));
     highScores.value = list.take(5).toList(growable: false);
-    savePrefs();
+    // Only persist name, score, and level on game over
+    saveScoresOnly();
   }
 
   void clearHighScores() {

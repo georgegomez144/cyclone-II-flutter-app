@@ -19,15 +19,33 @@ class Starfield extends Component with HasGameRef {
   final int count;
   final Vector2 Function() sizeProvider;
   final math.Random _rng = math.Random();
+  Vector2? _lastSize;
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    _spawnInitial();
+    _rebuildForSize(sizeProvider());
   }
 
-  void _spawnInitial() {
-    final size = sizeProvider();
+  @override
+  void onGameResize(Vector2 gameSize) {
+    super.onGameResize(gameSize);
+    // Rebuild starfield only when size actually changes
+    if (_lastSize == null ||
+        _lastSize!.x != gameSize.x ||
+        _lastSize!.y != gameSize.y) {
+      _rebuildForSize(gameSize);
+    }
+  }
+
+  void _rebuildForSize(Vector2 size) {
+    _lastSize = size.clone();
+    // Remove any existing stars
+    final existing = children.whereType<Star>().toList(growable: false);
+    if (existing.isNotEmpty) {
+      removeAll(existing);
+    }
+    // Spawn stars within the new bounds
     for (int i = 0; i < count; i++) {
       final pos = Vector2(
         _rng.nextDouble() * size.x,

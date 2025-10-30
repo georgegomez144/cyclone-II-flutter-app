@@ -6,6 +6,7 @@ import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import 'package:cyclone_game/utils.dart';
 
 /// Enemy core ship that sits in the center and fires at the player
 /// at intervals when its cooldown allows.
@@ -15,7 +16,7 @@ class EnemyCore extends PositionComponent
     required this.innerRadius,
     required this.middleRadius,
     required this.outerRadius,
-  }) : super(size: Vector2.all(36), anchor: Anchor.center);
+  }) : super(size: Vector2.all(isPhone ? 30 : 36), anchor: Anchor.center);
 
   final double innerRadius; // outer of inner ring
   final double middleRadius; // outer of middle ring

@@ -6,6 +6,8 @@ import 'package:cyclone_game/components/enemy/enemy_blast.dart';
 import 'package:cyclone_game/components/enemy/enemy_main_shot.dart';
 import 'package:cyclone_game/components/player/player.dart';
 import 'package:cyclone_game/components/player/player_bullet.dart';
+import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
+import 'package:cyclone_game/components/hazards/mine.dart';
 import 'package:cyclone_game/game/game_manager.dart';
 import 'package:cyclone_game/game/world/starfield.dart';
 import 'package:flame/components.dart';
@@ -25,12 +27,41 @@ class CycloneGame extends FlameGame
   bool _isRespawning = false;
   TextComponent? _gameOverBanner;
 
+  // Spawner timers
+  double _pickupSpawnTimer = 0;
+  double _mineSpawnTimer = 0;
+
   @override
   Color backgroundColor() => const Color(0xFF000000);
 
   @override
+  void update(double dt) {
+    super.update(dt);
+    if (_levelTransitioning) return;
+
+    // Timed spawns for pickups and mines while playing
+    _pickupSpawnTimer += dt;
+    _mineSpawnTimer += dt;
+
+    // Spawn yummy pickups every 8–14 seconds randomly
+    final pickupInterval = 10.0; // base
+    if (_pickupSpawnTimer >= pickupInterval) {
+      _pickupSpawnTimer = 0;
+      _maybeSpawnPickup();
+    }
+
+    // Spawn mines every 3 seconds up to cap
+    if (_mineSpawnTimer >= 3.0) {
+      _mineSpawnTimer = 0;
+      _maybeSpawnMine();
+    }
+  }
+
+  @override
   Future<void> onLoad() async {
     await super.onLoad();
+    _pickupSpawnTimer = 0;
+    _mineSpawnTimer = 0;
 
     // Fix asset path: our images are under assets/ (not assets/images/).
     // Ensure Flame's image cache looks under assets/ for Sprite.load('*.png').
@@ -72,6 +103,7 @@ class CycloneGame extends FlameGame
     if (!player.isMounted) {
       add(player);
     }
+    player.revive();
     player.position = _randomSafeSpawn();
 
     // Ensure an enemy is present and centered
@@ -112,10 +144,11 @@ class CycloneGame extends FlameGame
     enemy = null;
 
     // Show centered 'You Won!' banner briefly
+    final center = size / 2;
     final banner = TextComponent(
       text: 'You Won!',
       anchor: Anchor.center,
-      position: size / 2,
+      position: center,
       priority: 1000,
       textRenderer: TextPaint(
         style: const TextStyle(
@@ -125,7 +158,24 @@ class CycloneGame extends FlameGame
         ),
       ),
     );
+
+    // Show quick summary: total points and lives remaining
+    final summary = TextComponent(
+      text: 'Score: ${gm.score.value}   Lives: ${gm.lives.value}',
+      anchor: Anchor.topCenter,
+      position: Vector2(center.x, center.y + 36),
+      priority: 1000,
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+
     await add(banner);
+    await add(summary);
 
     // Increment level
     gm.currentLevel.value = gm.currentLevel.value + 1;
@@ -133,16 +183,16 @@ class CycloneGame extends FlameGame
     // Save progress to leaderboard on each level increase
     gm.submitHighScore(level: gm.currentLevel.value);
 
-    // After a delay, remove banner, respawn enemy and reposition player safely
+    // After a delay, remove banner and respawn enemy for next level.
+    // Keep player at current position (no random respawn after a win).
     add(
       TimerComponent(
-        period: 1.2,
+        period: 1.5,
         removeOnFinish: true,
         onTick: () async {
           banner.removeFromParent();
+          summary.removeFromParent();
           await _spawnEnemy();
-          // Move player to a safe spawn for next level
-          player.position = _randomSafeSpawn();
           _levelTransitioning = false;
         },
       ),
@@ -210,7 +260,8 @@ class CycloneGame extends FlameGame
   void onPlayerHit() {
     if (_isRespawning || _levelTransitioning) return;
 
-    // Remove player visual if still mounted
+    // Mark player dead and remove visual if still mounted
+    player.kill();
     if (player.isMounted) {
       player.removeFromParent();
     }
@@ -230,6 +281,7 @@ class CycloneGame extends FlameGame
             if (!player.isMounted) {
               add(player);
             }
+            player.revive();
             player.position = _randomSafeSpawn();
             _isRespawning = false;
           },
@@ -328,5 +380,114 @@ class CycloneGame extends FlameGame
     // Remove enemy blasts and main shots
     children.whereType<EnemyBlast>().forEach((c) => c.removeFromParent());
     children.whereType<EnemyMainShot>().forEach((c) => c.removeFromParent());
+    // Remove hazards and pickups
+    children.whereType<SparkMine>().forEach((c) => c.removeFromParent());
+    children.whereType<YummyPickup>().forEach((c) => c.removeFromParent());
+  }
+
+  // --- Spawners ------------------------------------------------------------
+  void _maybeSpawnPickup() {
+    // Do not spam: limit concurrent pickups to 2
+    final current = children.whereType<YummyPickup>().length;
+    if (current >= 2) return;
+
+    // Randomly choose among pickups: Shield, Points, Life, ContinuousFire, TripleSpread
+    final rnd = math.Random();
+    final int r = rnd.nextInt(5);
+    YummyPickup comp;
+    switch (r) {
+      case 0:
+        comp = ShieldYummy();
+        break;
+      case 1:
+        comp = PointsYummy(_randomPointValue(rnd));
+        break;
+      case 2:
+        comp = LifeYummy();
+        break;
+      case 3:
+        comp = ContinuousFireYummy();
+        break;
+      default:
+        comp = TripleSpreadYummy();
+        break;
+    }
+
+    // Spawn away from player and enemy center
+    final pos = _randomSpawnAwayFromPlayer(minDist: size.length / 6);
+    comp.position = pos;
+    add(comp);
+  }
+
+  int _randomPointValue(math.Random rnd) {
+    const options = [1500, 3000, 4500, 9000];
+    return options[rnd.nextInt(options.length)];
+  }
+
+  void _maybeSpawnMine() {
+    // Cap increases every 10 levels up to 5
+    final level = gm.currentLevel.value;
+    final cap = math.min(1 + ((level - 1) ~/ 10), 5);
+    final current = children.whereType<SparkMine>().length;
+    if (current >= cap) return;
+
+    // Must have an enemy to spawn from
+    final e = enemy;
+    if (e == null || !e.isMounted) return;
+
+    // Spawn from the enemy ship's nose with a small forward offset
+    final Vector2 forward = Vector2(0, -1)..rotate(e.angle);
+    final double spawnDist = (e.size.y / 2) + 16.0;
+    final Vector2 pos = e.position + forward * spawnDist;
+
+    final mine = SparkMine(start: pos);
+    add(mine);
+  }
+
+  Vector2 _randomSpawnAwayFromPlayer({double? minDist}) {
+    final rnd = math.Random();
+    final s = size;
+    final avoid = player.position.clone();
+    final double minD = minDist ?? math.min(s.x, s.y) * 0.25;
+    for (int i = 0; i < 24; i++) {
+      final x = rnd.nextDouble() * s.x;
+      final y = rnd.nextDouble() * s.y;
+      final p = Vector2(x, y);
+      if (p.distanceTo(avoid) >= minD && p.distanceTo(s / 2) >= minD * 0.6) {
+        return p;
+      }
+    }
+    return Vector2(rnd.nextDouble() * s.x, rnd.nextDouble() * s.y);
+  }
+
+  Vector2 _randomEdgeSpawnAwayFromPlayer() {
+    final rnd = math.Random();
+    final s = size;
+    // Pick one of four edges
+    final edge = rnd.nextInt(4);
+    double x, y;
+    switch (edge) {
+      case 0: // top
+        x = rnd.nextDouble() * s.x;
+        y = 0;
+        break;
+      case 1: // bottom
+        x = rnd.nextDouble() * s.x;
+        y = s.y;
+        break;
+      case 2: // left
+        x = 0;
+        y = rnd.nextDouble() * s.y;
+        break;
+      default: // right
+        x = s.x;
+        y = rnd.nextDouble() * s.y;
+    }
+    var p = Vector2(x, y);
+    // Ensure not too close to player
+    if (p.distanceTo(player.position) < math.min(s.x, s.y) * 0.25) {
+      p = _randomSpawnAwayFromPlayer();
+    }
+    return p;
   }
 }

@@ -4,6 +4,8 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:cyclone_game/components/player/player_bullet.dart';
 import 'package:cyclone_game/components/player/player.dart';
+import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
+import 'package:cyclone_game/components/hazards/mine.dart';
 
 enum ShieldSegmentState { healthy, weakened, destroyed }
 
@@ -24,7 +26,7 @@ class EnemyShield extends PositionComponent {
   late final ShieldRing orangeRing;
   late final ShieldRing redRing;
 
-  // Bounce rings that always repel the player, even if a segment is destroyed.
+  // Bounce ring that repels the player (outer red ring only).
   late final _ShieldBounceRing _yellowBounce;
   late final _ShieldBounceRing _orangeBounce;
   late final _ShieldBounceRing _redBounce;
@@ -37,15 +39,16 @@ class EnemyShield extends PositionComponent {
     const double spinSpeed = math.pi / 6; // 30 deg/sec base
     yellowRing = ShieldRing(
       color: const Color(0xFFFFFF00),
-      glowColor: const Color(0xFFFFFF00),
+      glowColor: const Color(0xFFFFFF00).withOpacity(0.8),
       outerRadius: yellowRadius,
       innerRadius: math.max(0, yellowRadius - strokeWidth),
-      spinSpeed: spinSpeed, // clockwise (positive)
+      spinSpeed: spinSpeed,
+      // clockwise (positive)
       clockwise: true,
     );
     orangeRing = ShieldRing(
       color: const Color(0xFFFFA500),
-      glowColor: const Color(0xFFFFA500),
+      glowColor: const Color(0xFFFFA500).withOpacity(0.8),
       outerRadius: orangeRadius,
       innerRadius: math.max(0, orangeRadius - strokeWidth),
       spinSpeed: spinSpeed * 0.9,
@@ -53,9 +56,10 @@ class EnemyShield extends PositionComponent {
     );
     redRing = ShieldRing(
       color: const Color(0xFFFF0000),
-      glowColor: const Color(0xFFFF0000),
+      glowColor: const Color(0xFFFF0000).withOpacity(0.8),
       outerRadius: redRadius,
-      innerRadius: math.max(0, redRadius - strokeWidth),
+      innerRadius: math.max(0, redRadius - strokeWidth * 1.2),
+      // Slightly thicker
       spinSpeed: spinSpeed * 0.8,
       clockwise: true,
     );
@@ -65,11 +69,20 @@ class EnemyShield extends PositionComponent {
     await add(orangeRing);
     await add(yellowRing);
 
-    // Bounce rings for the player
-    _redBounce = _ShieldBounceRing(radius: redRadius + strokeWidth * 0.5);
-    _orangeBounce = _ShieldBounceRing(radius: orangeRadius + strokeWidth * 0.5);
-    _yellowBounce = _ShieldBounceRing(radius: yellowRadius + strokeWidth * 0.5);
-    await add(_redBounce);
+    // Bounce rings: repel the player at each outer ring edge and connect to visual ring for flash feedback
+    _yellowBounce = _ShieldBounceRing(
+      radius: yellowRadius + strokeWidth * 0.5,
+      ring: yellowRing,
+    );
+    _orangeBounce = _ShieldBounceRing(
+      radius: orangeRadius + strokeWidth * 0.5,
+      ring: orangeRing,
+    );
+    _redBounce = _ShieldBounceRing(
+      radius: redRadius + strokeWidth * 0.5,
+      ring: redRing,
+    );
+    await add(_redBounce); // outermost on bottom
     await add(_orangeBounce);
     await add(_yellowBounce);
   }
@@ -130,6 +143,9 @@ class ShieldRing extends PositionComponent {
     ShieldSegmentState.healthy,
   );
 
+  // Flash timers per segment for impact feedback
+  final List<double> _flashTimers = List.filled(sides, 0);
+
   late final List<_ShieldSegmentCollider> _colliders;
 
   @override
@@ -138,6 +154,17 @@ class ShieldRing extends PositionComponent {
     _colliders = List.generate(sides, (i) => _ShieldSegmentCollider(this, i));
     for (final c in _colliders) {
       await add(c);
+    }
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    // Decay flash timers
+    for (int i = 0; i < _flashTimers.length; i++) {
+      if (_flashTimers[i] > 0) {
+        _flashTimers[i] = math.max(0, _flashTimers[i] - dt);
+      }
     }
   }
 
@@ -155,6 +182,22 @@ class ShieldRing extends PositionComponent {
     final double segSize = 2 * math.pi / sides;
     final int idx = (a ~/ segSize) % sides;
     return _segments[idx] == ShieldSegmentState.destroyed;
+  }
+
+  // Trigger a brief flash on the segment aligned with worldAngle
+  void flashAtAngle(double worldAngle, {double duration = 0.12}) {
+    double a = worldAngle - angleOffset;
+    while (a < 0) a += 2 * math.pi;
+    while (a >= 2 * math.pi) a -= 2 * math.pi;
+    final double segSize = 2 * math.pi / sides;
+    final int idx = (a ~/ segSize) % sides;
+    flashSegment(idx, duration: duration);
+  }
+
+  void flashSegment(int index, {double duration = 0.12}) {
+    if (index < 0 || index >= sides) return;
+    if (_segments[index] == ShieldSegmentState.destroyed) return;
+    _flashTimers[index] = duration;
   }
 
   void hitSegment(int index) {
@@ -175,6 +218,7 @@ class ShieldRing extends PositionComponent {
     for (int i = 0; i < sides; i++) {
       _segments[i] = ShieldSegmentState.healthy;
       _colliders[i].setActive(true);
+      _flashTimers[i] = 0;
     }
   }
 
@@ -222,25 +266,90 @@ class ShieldRing extends PositionComponent {
       ..strokeWidth = 4
       ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 10);
 
+    // Additional paints for rim highlight and inner shadow to give a subtle 3D look
+    final rimHighlight = Paint()
+      ..color = Colors.white.withOpacity(0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..blendMode = BlendMode.plus
+      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 2);
+
+    final innerShadow = Paint()
+      ..color = Colors.black.withOpacity(0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
     for (int i = 0; i < sides; i++) {
       final state = _segments[i];
       if (state == ShieldSegmentState.destroyed) continue; // gap
       final int j = (i + 1) % sides;
-      // draw as two parallel lines blended: outer and inner, but simpler: single line at outer radius
-      final p1 = outerVerts[i];
-      final p2 = outerVerts[j];
-      // Glow first
+
+      // Outer edge points
+      final p1o = outerVerts[i];
+      final p2o = outerVerts[j];
+      // Inner edge points
+      final p1i = innerVerts[i];
+      final p2i = innerVerts[j];
+
+      // 1) Soft translucent fill between outer and inner edges for glow and depth
+      final path = Path()
+        ..moveTo(p1o.dx, p1o.dy)
+        ..lineTo(p2o.dx, p2o.dy)
+        ..lineTo(p2i.dx, p2i.dy)
+        ..lineTo(p1i.dx, p1i.dy)
+        ..close();
+      final mid = Offset(
+        (p1o.dx + p2o.dx + p1i.dx + p2i.dx) / 4,
+        (p1o.dy + p2o.dy + p1i.dy + p2i.dy) / 4,
+      );
+      final gradient = RadialGradient(
+        colors: [
+          (state == ShieldSegmentState.weakened
+              ? glowColor.withOpacity(0.22)
+              : glowColor.withOpacity(0.42)),
+          Colors.transparent,
+        ],
+      );
+      final fillPaint = Paint()
+        ..shader = gradient.createShader(
+          Rect.fromCircle(
+            center: mid,
+            radius: (outerRadius - innerRadius) * 2.2,
+          ),
+        );
+      canvas.drawPath(path, fillPaint);
+
+      // 2) Outer bloom/glow
       canvas.drawLine(
-        p1,
-        p2,
+        p1o,
+        p2o,
         state == ShieldSegmentState.weakened ? glowWeakened : glowPaint,
       );
-      // Then crisp stroke
+
+      // 3) Crisp outer stroke
       canvas.drawLine(
-        p1,
-        p2,
+        p1o,
+        p2o,
         state == ShieldSegmentState.weakened ? strokeWeakened : strokeHealthy,
       );
+
+      // 4) Rim highlight slightly inset for a 3D rim-light
+      canvas.drawLine(p1o, p2o, rimHighlight);
+
+      // 5) Subtle inner shadow along inner edge to fake depth
+      canvas.drawLine(p1i, p2i, innerShadow);
+
+      // 6) Flash overlay when recently impacted
+      final ft = _flashTimers[i];
+      if (ft > 0) {
+        final alpha = (ft.clamp(0.0, 0.12) as double) / 0.12; // fade
+        final flashPaint = Paint()
+          ..color = Colors.white.withOpacity(0.9 * alpha)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5
+          ..blendMode = BlendMode.plus;
+        canvas.drawLine(p1o, p2o, flashPaint);
+      }
     }
   }
 }
@@ -326,40 +435,99 @@ class _ShieldSegmentCollider extends PositionComponent with CollisionCallbacks {
     if (!_active) return;
     if (other is PlayerBullet) {
       if (other.consumed) return;
-      // Consume the bullet and apply damage on the first segment it touches
+      // Consume the bullet first to guard against multiple colliders in the same frame
       other.consumed = true;
+      // Award points for hitting a shield segment
+      other.gameRef.gm.addScore(5);
+      // Remove bullet and apply damage on the first segment it touches
       other.removeFromParent();
       ring.hitSegment(index);
+    } else if (other is YummyPickup) {
+      // Destroy yummies when they touch the shield ring (no effect granted)
+      if (!other.isRemoving) {
+        other.removeFromParent();
+      }
+    } else if (other is SparkMine) {
+      // Mines should ride the shield rings instead of being destroyed.
+      // No action here: allow the mine to keep moving; its own logic will
+      // detect proximity to ring radii and orbit until it finds an opening.
     }
   }
 }
 
 class _ShieldBounceRing extends PositionComponent with CollisionCallbacks {
-  _ShieldBounceRing({required this.radius})
-    : super(size: Vector2.all(1), anchor: Anchor.center);
+  _ShieldBounceRing({required this.radius, required this.ring})
+    : super(size: Vector2.zero(), anchor: Anchor.center);
 
   final double radius;
+  final ShieldRing ring;
   late final CircleHitbox _hitbox;
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    _hitbox = CircleHitbox.relative(1, parentSize: Vector2.all(2 * radius))
-      ..collisionType = CollisionType.passive;
+    // Ensure this component has a size that matches the intended diameter
+    size = Vector2.all(2 * radius);
+    // Activate collision so the ring acts as a solid barrier for the player
+    _hitbox = CircleHitbox.relative(0.5, parentSize: size)
+      ..collisionType = CollisionType.active;
     add(_hitbox);
+  }
+
+  @override
+  void onCollisionStart(
+    Set<Vector2> intersectionPoints,
+    PositionComponent other,
+  ) {
+    super.onCollisionStart(intersectionPoints, other);
+    _repelIfPlayer(other);
   }
 
   @override
   void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollision(intersectionPoints, other);
-    if (other is Player) {
-      // Push player outward to the ring boundary + small epsilon
-      final Vector2 center = absolutePosition; // world center
-      final Vector2 toPlayer = other.position - center;
-      if (toPlayer.length2 == 0) return;
-      final dir = toPlayer.normalized();
-      final double desiredDist = radius + 8; // epsilon
-      other.position = center + dir * desiredDist;
+    _repelIfPlayer(other);
+  }
+
+  void _repelIfPlayer(PositionComponent other) {
+    // Keep only player outside of the bounce radius; other entities unaffected here.
+    if (other is! Player) return;
+    // Compute world-space center by walking up two levels: EnemyShield -> EnemySprite
+    Vector2 center = Vector2.zero();
+    final p = parent;
+    if (p is PositionComponent) {
+      final gp = p.parent;
+      if (gp is PositionComponent) {
+        center = gp.position.clone();
+      }
+    }
+    // If center is zero (fallback), do nothing to avoid snapping to origin.
+    if (center == Vector2.zero()) return;
+
+    final toPlayer = other.position - center;
+    double dist = toPlayer.length;
+    if (dist == 0) {
+      // Nudge in a random outward direction if exactly centered
+      dist = 0.0001;
+    }
+    final dir = toPlayer.length2 == 0
+        ? Vector2(1, 0)
+        : toPlayer / dist; // outward normal
+
+    // Desired minimal distance from center: ring radius plus a small margin and player's radius
+    final playerRadius = other.size.length / 4; // approx
+    final margin = 2.0;
+    final minDist = radius + playerRadius + margin;
+    if (dist < minDist) {
+      // Clamp player to the ring boundary just outside
+      other.position = center + dir * minDist;
+
+      // Head-on detection and player turnaround
+      other.handleShieldImpact(dir);
+
+      // Flash the ring segment at the impact angle
+      final impactAngle = math.atan2(dir.y, dir.x);
+      ring.flashAtAngle(impactAngle);
     }
   }
 }

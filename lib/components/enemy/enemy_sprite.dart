@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:cyclone_game/components/enemy/enemy_blast.dart';
 import 'package:cyclone_game/components/enemy/shield_system.dart';
 import 'package:cyclone_game/game/cyclone_game.dart';
+import 'package:cyclone_game/utils.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 
@@ -22,8 +23,8 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
   final double _turnRatePerLevel = 0.02; // small increase per level
 
   // Firing control
-  final math.Random _rnd = math.Random();
-  double _timeUntilNextShot = 0.0;
+  double _cooldown = 0.0;
+  final double fireCooldown = 0.7; // seconds between shots when openings appear
 
   VoidCallback? _levelListener;
 
@@ -41,7 +42,7 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
     );
 
     // Install shield system using the existing visual radii
-    final double rYellow = size.x * 1.4;
+    final double rYellow = size.x * (isPhone ? 1 : 1.3);
     final double rOrange = rYellow * 1.35;
     final double rRed = rOrange * 1.25;
     _shield = EnemyShield(
@@ -57,8 +58,6 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
       _shield?.resetAll();
     };
     gameRef.gm.currentLevel.addListener(_levelListener!);
-
-    _resetShotTimer();
   }
 
   @override
@@ -92,13 +91,18 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
       }
     }
 
-    // FIRING: randomized intervals with a minimum of 5 seconds between shots
-    if (_timeUntilNextShot > 0) {
-      _timeUntilNextShot -= dt;
+    // FIRING: only from the front arc and when an opening across all rings aligns
+    if (_cooldown > 0) {
+      _cooldown -= dt;
     }
-    if (_timeUntilNextShot <= 0) {
-      _fireAtPlayer();
-      _resetShotTimer();
+    if (_cooldown <= 0 && player.isMounted) {
+      final throughOpening =
+          _shield?.canFireTowardGlobal(position, player.position) ?? false;
+      final inFront = _isInFrontCone(player.position);
+      if (throughOpening && inFront) {
+        _fireAtPlayer();
+        _cooldown = fireCooldown;
+      }
     }
   }
 
@@ -106,6 +110,17 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
   void render(Canvas canvas) {
     super.render(canvas);
     // Visual rings are now rendered by EnemyShield child component.
+  }
+
+  // Check whether a world point is within the enemy's forward firing cone.
+  // Front is along local -Y rotated by current angle. Half-angle ~45 degrees.
+  bool _isInFrontCone(Vector2 worldPoint, {double halfAngle = math.pi / 4}) {
+    final toPoint = (worldPoint - position);
+    if (toPoint.length2 == 0) return false;
+    final fwd = Vector2(0, -1)..rotate(angle);
+    final cosTheta = (fwd.dot(toPoint.normalized())).clamp(-1.0, 1.0);
+    final theta = math.acos(cosTheta);
+    return theta <= halfAngle;
   }
 
   void _fireAtPlayer() {
@@ -117,20 +132,23 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
         _shield?.canFireTowardGlobal(position, player.position) ?? false;
     if (!canShoot) return;
 
+    // And only if target is within the front cone relative to enemy facing
+    if (!_isInFrontCone(player.position)) return;
+
+    // Compute world-space firing direction toward the player, but spawn from the enemy sprite's nose
     final dir = (player.position - position).normalized();
+    final Vector2 fwd = Vector2(0, -1)..rotate(angle);
+    final double spawnDist = (size.y / 2) + 6.0; // just ahead of the sprite tip
+    final Vector2 startPos = position + fwd * spawnDist;
+
     final blast = EnemyBlast(
-      start: position.clone(),
+      start: startPos,
       direction: dir,
       baseSpeed: 360.0, // modest speed to allow dodging early on
       growthFactorPerSecond: 1.5,
       initialSize: Size(18, 18),
     );
     gameRef.add(blast);
-  }
-
-  void _resetShotTimer() {
-    // Minimum 5s, plus up to ~5s randomness
-    _timeUntilNextShot = 5.0 + _rnd.nextDouble() * 5.0;
   }
 
   bool hasAlignedGapsToward(Vector2 worldPoint) {

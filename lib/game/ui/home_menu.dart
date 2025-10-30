@@ -50,25 +50,15 @@ class _HomeMenuState extends State<HomeMenu> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      'Cyclone',
-                      style: const TextStyle(
-                        color: Colors.amber,
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                    Image.asset('assets/cyclone_logo_title.png'),
                     const SizedBox(height: 24),
                     _highScores(gm),
                     const SizedBox(height: 16),
                     _lastPlayer(gm),
                     const SizedBox(height: 24),
-                    Wrap(
+                    Column(
                       spacing: 12,
-                      runSpacing: 12,
-                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _redButton(
                           label: 'Start New Game',
@@ -92,8 +82,8 @@ class _HomeMenuState extends State<HomeMenu> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
-                    _settings(gm),
+                    // const SizedBox(height: 24),
+                    // _settings(gm),
                   ],
                 ),
               ),
@@ -140,7 +130,7 @@ class _HomeMenuState extends State<HomeMenu> {
             const Text(
               'High Scores',
               style: TextStyle(
-                color: Colors.amber,
+                color: Colors.orange,
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
               ),
@@ -152,66 +142,107 @@ class _HomeMenuState extends State<HomeMenu> {
                 style: TextStyle(color: Colors.amberAccent),
               )
             else
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      spacing: 12,
-                      children: [
-                        Text(
-                          'Rank',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: Colors.amber),
-                        ),
-                        Text(
-                          'Name',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: Colors.amber),
-                        ),
-                        const SizedBox(width: 32),
-                        Text(
-                          'Score',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: Colors.amber),
-                        ),
-                        Text(
-                          'Level',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: Colors.amber),
-                        ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Colors.red.withValues(alpha: 0.1),
+                        Colors.amber.withValues(alpha: 0.1),
                       ],
                     ),
                   ),
-                  for (int i = 0; i < list.length && i < 5; i++)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        spacing: 12,
-                        children: [
-                          Text(
-                            '${i + 1}.',
-                            style: const TextStyle(color: Colors.amber),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 900),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 2.0),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [Colors.deepOrange, Colors.amber],
+                            ),
                           ),
-                          Text(
-                            list[i].name,
-                            style: const TextStyle(color: Colors.amber),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            spacing: 12,
+                            children: [
+                              Text(
+                                'Rank',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(color: Colors.black),
+                              ),
+                              Text(
+                                'Name',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(color: Colors.black),
+                              ),
+                              const SizedBox(width: 32),
+                              Text(
+                                'Score',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(color: Colors.black),
+                              ),
+                              Text(
+                                'Level',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(color: Colors.black),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 32),
-                          Text(
-                            '${list[i].score}',
-                            style: const TextStyle(color: Colors.amber),
+                        ),
+                        for (int i = 0; i < list.length && i < 3; i++)
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  width: 2,
+                                  color: Colors.orange,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              spacing: 12,
+                              children: [
+                                Text(
+                                  '${i + 1}.',
+                                  style: const TextStyle(
+                                    color: Colors.orangeAccent,
+                                  ),
+                                ),
+                                Text(
+                                  list[i].name,
+                                  style: const TextStyle(
+                                    color: Colors.orangeAccent,
+                                  ),
+                                ),
+                                const SizedBox(width: 32),
+                                Text(
+                                  '${list[i].score}',
+                                  style: const TextStyle(
+                                    color: Colors.orangeAccent,
+                                  ),
+                                ),
+                                Text(
+                                  '${list[i].level}',
+                                  style: const TextStyle(
+                                    color: Colors.orangeAccent,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          Text(
-                            '${list[i].level}',
-                            style: const TextStyle(color: Colors.amber),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                ],
+                  ),
+                ),
               ),
 
             const SizedBox(height: 24),
@@ -226,24 +257,26 @@ class _HomeMenuState extends State<HomeMenu> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Name', style: TextStyle(color: Colors.amber)),
-        const SizedBox(height: 6),
         TextField(
           controller: _nameCtl,
-          style: const TextStyle(color: Colors.amber),
-          cursorColor: Colors.amber,
+          style: const TextStyle(color: Colors.amberAccent, fontSize: 18),
+          cursorColor: Colors.orange,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.black,
             hintText: 'Enter your name',
-            hintStyle: const TextStyle(color: Colors.amberAccent),
+            hintStyle: const TextStyle(color: Colors.orangeAccent),
+            prefix: Text('Name: ', style: TextStyle(color: Colors.amberAccent)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.amber),
+              borderSide: const BorderSide(color: Colors.orange),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.amberAccent, width: 2),
+              borderSide: const BorderSide(
+                color: Colors.orangeAccent,
+                width: 2,
+              ),
             ),
           ),
           onChanged: (v) {
@@ -328,12 +361,12 @@ class _HomeMenuState extends State<HomeMenu> {
   }
 
   Widget _redButton({required String label, required VoidCallback onPressed}) {
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.red,
-        foregroundColor: Colors.black,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        textStyle: const TextStyle(fontWeight: FontWeight.bold),
+    return TextButton(
+      style: ButtonStyle(
+        foregroundColor: WidgetStatePropertyAll(Colors.red),
+        backgroundColor: WidgetStatePropertyAll(
+          Colors.red.withValues(alpha: 0.15),
+        ),
       ),
       onPressed: onPressed,
       child: Text(label),

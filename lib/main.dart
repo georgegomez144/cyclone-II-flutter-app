@@ -15,6 +15,7 @@ void main() {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
+        fontFamily: 'Aldrich',
         scaffoldBackgroundColor: Colors.black,
         colorScheme: const ColorScheme.dark(
           primary: Colors.amber,
@@ -39,7 +40,11 @@ void main() {
           ),
           hintStyle: TextStyle(color: Colors.amber),
         ),
-        textTheme: const TextTheme(bodyMedium: TextStyle(color: Colors.amber)),
+        // Ensure Aldrich applies across all text while keeping amber body color
+        textTheme: ThemeData(
+          brightness: Brightness.dark,
+          fontFamily: 'Aldrich',
+        ).textTheme.apply(bodyColor: Colors.amber),
       ),
       home: Scaffold(
         body: GameWidget(

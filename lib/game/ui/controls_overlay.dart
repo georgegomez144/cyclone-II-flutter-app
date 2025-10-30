@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cyclone_game/game/cyclone_game.dart';
+import 'package:cyclone_game/utils.dart';
 import 'package:flame/components.dart' show Vector2;
 import 'package:flutter/material.dart';
 
@@ -13,6 +14,19 @@ class ControlsOverlay extends StatefulWidget {
 }
 
 class _ControlsOverlayState extends State<ControlsOverlay> {
+  bool _paused = false;
+
+  void _togglePause() {
+    setState(() {
+      _paused = !_paused;
+      if (_paused) {
+        widget.game.pauseGame();
+      } else {
+        widget.game.resumeGame();
+      }
+    });
+  }
+
   Offset? _joystickCenter;
   Offset? _pointerPos;
 
@@ -43,10 +57,24 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
         children: [
           // Joystick bottom-left
           Positioned(left: 16, bottom: 16, child: _buildJoystick()),
-          // Fire button bottom-right
-          Positioned(right: 24, bottom: 24, child: _buildFireButton()),
+          Positioned(
+            right: 24,
+            top: isPhone ? 120 : 40,
+            child: _buildExitButton(),
+          ),
+          Positioned(right: 24, bottom: 140, child: _buildPauseButton()),
+          // Controls cluster bottom-right: Pause/Exit above Fire button
+          Positioned(right: 24, bottom: 24, child: _buildActionCluster()),
         ],
       ),
+    );
+  }
+
+  Widget _buildActionCluster() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [_buildFireButton()],
     );
   }
 
@@ -83,26 +111,140 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
     );
   }
 
-  Widget _buildFireButton() {
-    return GestureDetector(
-      onTap: () => widget.game.player.fireSingleNoLimit(),
-      child: Container(
-        width: 96,
-        height: 96,
-        decoration: BoxDecoration(
-          color: Colors.red,
-          shape: BoxShape.circle,
-          boxShadow: const [
-            BoxShadow(color: Colors.redAccent, blurRadius: 8, spreadRadius: 2),
+  Widget _buildPauseButton() {
+    return ElevatedButton.icon(
+      onPressed: _togglePause,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.amber.withOpacity(0.1),
+        foregroundColor: Colors.amber.shade200,
+        elevation: 8,
+        shadowColor: Colors.amber.withOpacity(0.3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        side: BorderSide(
+          color: Colors.amber.shade400.withOpacity(0.5),
+          width: 2,
+        ),
+      ),
+      icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
+      label: Text(
+        _paused ? 'Resume' : 'Pause',
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1,
+          shadows: [
+            Shadow(
+              color: Colors.amber.withOpacity(0.8),
+              offset: const Offset(0, 0),
+              blurRadius: 8,
+            ),
           ],
         ),
-        alignment: Alignment.center,
-        child: const Text(
-          'FIRE',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
+      ),
+    );
+  }
+
+  Widget _buildExitButton() {
+    return ElevatedButton.icon(
+      onPressed: () {
+        if (_paused) widget.game.resumeGame();
+        widget.game.exitToHome();
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.red.withOpacity(0.1),
+        foregroundColor: Colors.red.shade200,
+        elevation: 8,
+        shadowColor: Colors.red.withOpacity(0.3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        side: BorderSide(color: Colors.red.shade400.withOpacity(0.5), width: 2),
+      ),
+      icon: const Icon(Icons.logout),
+      label: Text(
+        'Exit',
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1,
+          shadows: [
+            Shadow(
+              color: Colors.red.withOpacity(0.8),
+              offset: const Offset(0, 0),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFireButton() {
+    return GestureDetector(
+      onTap: () => widget.game.player.tryFire(),
+      onTapDown: (_) => widget.game.player.setUiFireHeld(true),
+      onTapUp: (_) => widget.game.player.setUiFireHeld(false),
+      onTapCancel: () => widget.game.player.setUiFireHeld(false),
+      child: Material(
+        elevation: 8,
+        shadowColor: Colors.redAccent.withOpacity(0.5),
+        shape: const CircleBorder(),
+        child: Container(
+          width: 96,
+          height: 96,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                Colors.red.shade300,
+                Colors.red.shade600,
+                Colors.red.shade800,
+              ],
+              stops: const [0.2, 0.6, 1.0],
+              center: Alignment.topLeft,
+              radius: 1.2,
+            ),
+            border: Border.all(
+              color: Colors.deepOrange.shade700.withOpacity(0.7),
+              width: 3,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.white.withOpacity(0.4),
+                offset: const Offset(-2, -2),
+                blurRadius: 4,
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                offset: const Offset(2, 2),
+                blurRadius: 4,
+              ),
+              BoxShadow(
+                color: Colors.redAccent.withOpacity(0.3),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            'FIRE',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.5,
+              fontSize: 32,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.6),
+                  offset: const Offset(2, 2),
+                  blurRadius: 2,
+                ),
+                Shadow(
+                  color: Colors.white.withOpacity(0.4),
+                  offset: const Offset(-1, -1),
+                  blurRadius: 1,
+                ),
+              ],
+            ),
           ),
         ),
       ),

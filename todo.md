@@ -1,5 +1,1 @@
-- add an solid glowing orange 12 sided shield ring around the enemy (4px thick) with a 120px diameter
-- add a solid glowing red 12 sided shield ring around the enemy (4px thick) with a 140px diameter
-- player earns points by shooting the rings (1pt) and 100pts for destroying the enemy ship (one shot destroys the enemy but can only shoot through the opening in all three rings)
-- player's ship should not be able to pass through the enemy's shield but bounce off.
-- randomly spawn upgrades for the player to fly into (a glowing coin for player's full shields, a coin for points: random 1500, 3000, 4500, 9000)
+- make sure the player's bullet destroys core as soon as it makes contact (if it passes through the gap of the rings)

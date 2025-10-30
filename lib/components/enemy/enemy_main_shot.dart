@@ -58,12 +58,12 @@ class EnemyMainShot extends PositionComponent with HasGameRef<CycloneGame> {
     final pathPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8
-      ..color = Colors.cyanAccent.withOpacity(0.9)
+      ..color = Colors.orangeAccent.withOpacity(0.95)
       ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 10);
     final telePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 14
-      ..color = Colors.white.withOpacity(0.35)
+      ..color = Colors.redAccent.withOpacity(0.35)
       ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 16);
 
     final p0 = Offset(start.x, start.y);
