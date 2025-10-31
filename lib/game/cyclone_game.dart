@@ -452,33 +452,31 @@ class CycloneGame extends FlameGame
     final current = children.whereType<YummyPickup>().length;
     if (current >= 2) return;
 
-    // Randomly choose among pickups: Shield, Points, Life, ContinuousFire, TripleSpread, TripleAuto, Lock
     final rnd = math.Random();
-    final int r = rnd.nextInt(7);
-    YummyPickup comp;
-    switch (r) {
-      case 0:
-        comp = ShieldYummy();
-        break;
-      case 1:
-        comp = PointsYummy(_randomPointValue(rnd));
-        break;
-      case 2:
-        comp = LifeYummy();
-        break;
-      case 3:
-        comp = ContinuousFireYummy();
-        break;
-      case 4:
-        comp = TripleSpreadYummy();
-        break;
-      case 5:
-        comp = LockYummy();
-        break;
-      default:
-        comp = TripleAutoYummy();
-        break;
+    final level = gm.currentLevel.value;
+
+    // Build allowed pickup constructors based on level gating
+    final List<YummyPickup Function()> allowed = [
+      () => ShieldYummy(),
+      () => PointsYummy(_randomPointValue(rnd)),
+      () => LifeYummy(),
+      () => TripleSpreadYummy(),
+    ];
+    // AutoYummy (ContinuousFire) after level > 5
+    if (level > 5) {
+      allowed.add(() => ContinuousFireYummy());
     }
+    // LockYummy after level > 12
+    if (level > 12) {
+      allowed.add(() => LockYummy());
+    }
+    // TripleAutoYummy after level > 20
+    if (level > 20) {
+      allowed.add(() => TripleAutoYummy());
+    }
+
+    if (allowed.isEmpty) return;
+    final comp = allowed[rnd.nextInt(allowed.length)]();
 
     // Spawn away from player and enemy center
     final pos = _randomSpawnAwayFromPlayer(minDist: size.length / 6);

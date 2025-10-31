@@ -415,7 +415,7 @@ class _HomeMenuState extends State<HomeMenu> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.red.shade800, Colors.amber],
+          colors: [Colors.red.shade800, Colors.deepOrange, Colors.amber],
         ),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
@@ -437,7 +437,7 @@ class _HomeMenuState extends State<HomeMenu> {
           borderRadius: BorderRadius.circular(8),
           onTap: onPressed,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Text(
               label,
               style: const TextStyle(

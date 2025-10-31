@@ -6,6 +6,8 @@ import 'package:cyclone_game/components/player/player_bullet.dart';
 import 'package:cyclone_game/components/player/player.dart';
 import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
 import 'package:cyclone_game/components/hazards/mine.dart';
+import 'package:cyclone_game/components/effects/electric_shield.dart';
+import 'package:cyclone_game/components/enemy/enemy_blast.dart';
 
 enum ShieldSegmentState { healthy, weakened, destroyed }
 
@@ -14,7 +16,7 @@ class EnemyShield extends PositionComponent {
     required this.yellowRadius,
     required this.orangeRadius,
     required this.redRadius,
-    this.strokeWidth = 1.5,
+    this.strokeWidth = 1,
   }) : super(size: Vector2.zero(), anchor: Anchor.center);
 
   final double yellowRadius;
@@ -36,29 +38,32 @@ class EnemyShield extends PositionComponent {
     await super.onLoad();
 
     // Spin speeds (radians/sec) and directions
-    const double spinSpeed = math.pi / 3; // 30 deg/sec base
+    const double spinSpeed = math.pi / 2; // 30 deg/sec base
     yellowRing = ShieldRing(
       color: const Color(0xFFDDFF00),
-      glowColor: const Color(0xFFFFFF00).withOpacity(0.8),
+      glowColor: const Color(0xFFFFFF00),
       outerRadius: yellowRadius,
-      innerRadius: math.max(0, yellowRadius - strokeWidth),
+      innerRadius: math.max(0, yellowRadius - 0.5),
+      // Changed from strokeWidth to 2
       spinSpeed: spinSpeed,
       // clockwise (positive)
       clockwise: true,
     );
     orangeRing = ShieldRing(
       color: const Color(0xFFFFA500),
-      glowColor: const Color(0xFFFFD500).withOpacity(0.8),
+      glowColor: const Color(0xFFFFD500),
       outerRadius: orangeRadius,
-      innerRadius: math.max(0, orangeRadius - strokeWidth),
+      innerRadius: math.max(0, orangeRadius - 0.5),
+      // Changed from strokeWidth to 2
       spinSpeed: spinSpeed * 0.9,
       clockwise: false, // counter-clockwise
     );
     redRing = ShieldRing(
       color: const Color(0xFFFF0000),
-      glowColor: const Color(0xFFFF4400).withOpacity(0.8),
+      glowColor: const Color(0xFFFF4400),
       outerRadius: redRadius,
-      innerRadius: math.max(0, redRadius - strokeWidth * 1.2),
+      innerRadius: math.max(0, redRadius - 0.5),
+      // Changed from strokeWidth * 1.2 to 2
       // Slightly thicker
       spinSpeed: spinSpeed * 0.8,
       clockwise: true,
@@ -71,15 +76,15 @@ class EnemyShield extends PositionComponent {
 
     // Bounce rings: repel the player at each outer ring edge and connect to visual ring for flash feedback
     _yellowBounce = _ShieldBounceRing(
-      radius: yellowRadius + strokeWidth * 0.5,
+      radius: yellowRadius + strokeWidth * 0.8,
       ring: yellowRing,
     );
     _orangeBounce = _ShieldBounceRing(
-      radius: orangeRadius + strokeWidth * 0.5,
+      radius: orangeRadius + strokeWidth * 0.8,
       ring: orangeRing,
     );
     _redBounce = _ShieldBounceRing(
-      radius: redRadius + strokeWidth * 0.5,
+      radius: redRadius + strokeWidth * 0.8,
       ring: redRing,
     );
     await add(_redBounce); // outermost on bottom
@@ -127,7 +132,7 @@ class ShieldRing extends PositionComponent {
     required this.clockwise,
   }) : super(size: Vector2.zero(), anchor: Anchor.center);
 
-  static const int sides = 16;
+  static const int sides = 12;
   final Color color;
   final Color glowColor;
   final double outerRadius;
@@ -270,14 +275,14 @@ class ShieldRing extends PositionComponent {
     final rimHighlight = Paint()
       ..color = Colors.white.withOpacity(0.35)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
+      ..strokeWidth = 4
       ..blendMode = BlendMode.plus
       ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 2);
 
     final innerShadow = Paint()
       ..color = Colors.black.withOpacity(0.22)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 4;
 
     for (int i = 0; i < sides; i++) {
       final state = _segments[i];
@@ -433,15 +438,70 @@ class _ShieldSegmentCollider extends PositionComponent with CollisionCallbacks {
   ) {
     super.onCollisionStart(intersectionPoints, other);
     if (!_active) return;
+
+    // Helper: world-space center of the enemy (EnemySprite)
+    Vector2 center = Vector2.zero();
+    final rp = ring.parent;
+    if (rp is PositionComponent) {
+      final gp = rp.parent;
+      if (gp is PositionComponent) {
+        center = gp.position.clone();
+      }
+    }
+
     if (other is PlayerBullet) {
       if (other.consumed) return;
-      // Consume the bullet first to guard against multiple colliders in the same frame
+      // Angle from enemy center toward the collision (use bullet position if no points)
+      final impact = (intersectionPoints.isNotEmpty)
+          ? intersectionPoints.first
+          : other.position;
+      final worldAngle = math.atan2(
+        (impact.y - center.y),
+        (impact.x - center.x),
+      );
+
+      // Enforce outer-to-inner gating: you cannot damage inner rings unless
+      // the corresponding outer rings have an opening at the same angle.
+      bool canDamage = false;
+      final parentShield = rp is EnemyShield ? rp : null;
+      if (parentShield != null) {
+        if (identical(ring, parentShield.redRing)) {
+          // Red (outermost) can always be damaged
+          canDamage = true;
+        } else if (identical(ring, parentShield.orangeRing)) {
+          // Orange requires a hole through red at this angle
+          canDamage = parentShield.redRing.isAngleOpen(worldAngle);
+        } else if (identical(ring, parentShield.yellowRing)) {
+          // Yellow requires holes through red and orange at this angle
+          final openRed = parentShield.redRing.isAngleOpen(worldAngle);
+          final openOrange = parentShield.orangeRing.isAngleOpen(worldAngle);
+          canDamage = openRed && openOrange;
+        }
+      }
+
+      // Consume bullet so it can't hit multiple segments this frame
       other.consumed = true;
-      // Award points for hitting a shield segment
-      other.gameRef.gm.addScore(5);
-      // Remove bullet and apply damage on the first segment it touches
       other.removeFromParent();
-      ring.hitSegment(index);
+
+      if (canDamage) {
+        // Award points only when actual damage is applied
+        other.gameRef.gm.addScore(5);
+        ring.hitSegment(index);
+      } else {
+        // Blocked: flash feedback on the impacted segment only
+        ring.flashAtAngle(worldAngle);
+      }
+    } else if (other is EnemyBlast) {
+      // Enemy blasts cannot pass through intact segments; remove them and flash.
+      final impact = (intersectionPoints.isNotEmpty)
+          ? intersectionPoints.first
+          : other.position;
+      final worldAngle = math.atan2(
+        (impact.y - center.y),
+        (impact.x - center.x),
+      );
+      ring.flashAtAngle(worldAngle, duration: 0.08);
+      other.removeFromParent();
     } else if (other is YummyPickup) {
       // Destroy yummies when they touch the shield ring (no effect granted)
       if (!other.isRemoving) {

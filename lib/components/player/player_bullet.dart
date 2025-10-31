@@ -29,8 +29,7 @@ class PlayerBullet extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    final paint = Paint()
-      ..color = Colors.yellow.shade50.withValues(alpha: 0.75);
+    final paint = Paint()..color = Colors.yellow.shade50;
     canvas.drawCircle(Offset.zero, size.x / 2, paint);
   }
 

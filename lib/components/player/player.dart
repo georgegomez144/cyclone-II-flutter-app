@@ -9,6 +9,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
 import 'package:cyclone_game/game/audio_manager.dart';
+import 'package:cyclone_game/components/effects/electric_shield.dart';
 
 class Player extends PositionComponent
     with KeyboardHandler, CollisionCallbacks, HasGameRef<CycloneGame> {
@@ -42,6 +43,10 @@ class Player extends PositionComponent
       _refreshShieldGlow();
       // Reset HUD bullet mode
       gm.currentBulletMode.value = BulletMode.single;
+    } else {
+      // If we used a Lock Yummy to keep yummies through this death,
+      // schedule clearing the lock after the player revives (single-use)
+      _clearKeepYummiesAfterRevive = true;
     }
     _uiFireHeld = false;
     _kbFireHeld = false;
@@ -70,31 +75,48 @@ class Player extends PositionComponent
 
     // Re-apply shield glow based on flag
     _refreshShieldGlow();
+
+    // If we had a Lock Yummy that protected the last death, clear it now so
+    // it only applies to one death.
+    if (_clearKeepYummiesAfterRevive) {
+      gm.keepYummiesOnDeath.value = false;
+      _clearKeepYummiesAfterRevive = false;
+    }
   }
 
   // Movement (space-physics)
   final double maxSpeed = isPhone ? 460 : 520; // px/sec cap
   final double acceleration = 1200; // px/sec^2 when input held
   final double damping = 0.98; // per-second damping when no input
+  // Dead-zone to ensure tiny joystick noise doesn't register as movement (0..1 range)
+  final double joystickDeadZone = 0.06;
   Vector2 _velocity = Vector2.zero();
   Vector2 _keyMove = Vector2.zero();
   Vector2 _joyMove = Vector2.zero();
+  Vector2 _joyMoveSmoothed = Vector2.zero();
   bool _isMoving = false;
+  // If Lock Yummy was active at death, clear the lock after the next revive
+  bool _clearKeepYummiesAfterRevive = false;
 
   // Visuals
   late final SpriteComponent _spriteComp;
   Sprite? _spriteStationary;
   Sprite? _spriteMoving;
   CircleComponent? _shieldGlow;
+  ElectricShield? _electricShield;
 
   void _refreshShieldGlow() {
-    if (_shieldGlow == null) return;
+    // Ensure both glow and electric effect reflect the active state
     if (oneHitShieldActive) {
-      if (_shieldGlow!.parent == null) {
+      if (_shieldGlow != null && _shieldGlow!.parent == null) {
         add(_shieldGlow!);
       }
+      if (_electricShield != null && _electricShield!.parent == null) {
+        add(_electricShield!);
+      }
     } else {
-      _shieldGlow!.removeFromParent();
+      _shieldGlow?.removeFromParent();
+      _electricShield?.removeFromParent();
     }
   }
 
@@ -110,7 +132,11 @@ class Player extends PositionComponent
   }
 
   Vector2 get _move {
-    final v = _keyMove + _joyMove;
+    // Apply joystick dead-zone after smoothing to avoid tiny accel when not touching
+    final Vector2 joy = _joyMoveSmoothed.clone();
+    final double dz2 = joystickDeadZone * joystickDeadZone;
+    if (joy.length2 < dz2) joy.setZero();
+    final v = _keyMove + joy;
     if (v.length2 > 1) return v.normalized();
     return v;
   }
@@ -152,7 +178,17 @@ class Player extends PositionComponent
             anchor: Anchor.center,
             paint: ui.Paint()
               ..color = const ui.Color(0x5880D8FF)
-              ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.outer, 16),
+              ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.outer, 18),
+          )
+          ..position = size / 2
+          ..priority = -2; // render behind electric arcs
+    // Electric arcs visual (managed via _refreshShieldGlow)
+    _electricShield =
+        ElectricShield(
+            radius: size.x * 0.72,
+            strokeWidth: isPhone ? 2.0 : 2.4,
+            arcCount: isPhone ? 4 : 6,
+            color: const ui.Color(0xFF8FE7FF),
           )
           ..position = size / 2
           ..priority = -1;
@@ -173,6 +209,11 @@ class Player extends PositionComponent
   @override
   void update(double dt) {
     super.update(dt);
+
+    // Smooth joystick input to reduce jitter without altering peak speed
+    // Low-pass filter with ~50ms time-constant
+    final double alpha = 1 - math.exp(-dt / 0.05);
+    _joyMoveSmoothed += (_joyMove - _joyMoveSmoothed) * alpha;
 
     // Space-physics movement: apply acceleration when input present, otherwise damping.
     final input = _move;

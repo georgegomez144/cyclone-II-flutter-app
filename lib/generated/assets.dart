@@ -29,6 +29,8 @@ class Assets {
   static const String audioPlayerShot = 'lib/assets/audio/player_shot.mp3';
   static const String audioYouLose = 'lib/assets/audio/you_lose.mp3';
   static const String audioYummyFx = 'lib/assets/audio/yummy_fx.mp3';
+  static const String effectsElectricShield =
+      'lib/components/effects/electric_shield.dart';
   static const String effectsExplosion =
       'lib/components/effects/explosion.dart';
   static const String enemyEnemyBlast = 'lib/components/enemy/enemy_blast.dart';

@@ -3,10 +3,12 @@ import 'dart:math' as math;
 import 'package:cyclone_game/components/effects/explosion.dart';
 import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:flame/components.dart';
+import 'package:flame/collisions.dart';
 import 'package:flutter/material.dart';
 
 /// Enemy blast now vibrantly glows blue | purple | red.
 class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
+  // collision handled by shield colliders
   EnemyBlast({
     required this.start,
     required this.direction,
@@ -53,6 +55,8 @@ class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
     sprite = await Sprite.load('enemy_blast.png');
     // Tint sprite slightly toward the glow color for cohesion
     paint.color = _glowColor.withOpacity(0.9);
+    // Add a hitbox so shield segments can intercept blasts
+    add(CircleHitbox()..collisionType = CollisionType.active);
   }
 
   @override
