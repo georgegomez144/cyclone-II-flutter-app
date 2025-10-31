@@ -5,7 +5,7 @@ import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
-/// Enemy blast uses sprite asset with an orange/red glow.
+/// Enemy blast now vibrantly glows blue | purple | red.
 class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
   EnemyBlast({
     required this.start,
@@ -14,7 +14,9 @@ class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
     this.growthFactorPerSecond = 1.5,
     this.initialSize = const Size(22, 22),
     this.spinSpeed = 6.0, // radians/sec (used for subtle flicker rotation)
-  }) : super(anchor: Anchor.center);
+    Color? glowColor, // optional explicit color
+  }) : _glowColor = glowColor ?? _pickVibrantColor(),
+       super(anchor: Anchor.center);
 
   final Vector2 start;
   final Vector2 direction; // normalized
@@ -22,6 +24,19 @@ class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
   final double growthFactorPerSecond; // multiplicative scale per second
   final Size initialSize;
   final double spinSpeed; // radians/sec
+
+  static Color _pickVibrantColor() {
+    // Cycle among vibrant blue, purple, red accents
+    const choices = <Color>[
+      Colors.blueAccent,
+      Colors.purpleAccent,
+      Colors.redAccent,
+    ];
+    final i = math.Random().nextInt(choices.length);
+    return choices[i];
+  }
+
+  final Color _glowColor;
 
   late final Vector2 _vel;
   double _scale = 1.0;
@@ -36,25 +51,32 @@ class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
     _vel = direction.normalized() * baseSpeed;
     // Load sprite from assets (Flame images prefix set to 'assets/' in game)
     sprite = await Sprite.load('enemy_blast.png');
+    // Tint sprite slightly toward the glow color for cohesion
+    paint.color = _glowColor.withOpacity(0.9);
   }
 
   @override
   void render(Canvas canvas) {
-    // Draw soft orange/red bloom behind the sprite
+    // Vibrant, pulsing bloom behind the sprite
     final radius = (size.x * _scale) / 2;
-    final center = Offset.zero;
-    final bloomPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 24)
-      ..color = Colors.deepOrange.withOpacity(0.6);
-    canvas.drawCircle(center, radius * 1.25, bloomPaint);
+    // Center the glow within the component's local bounds (anchor handles world pivot)
+    final center = Offset(size.x / 2, size.y / 2);
 
-    // Optional inner warm glow to intensify color
+    // Pulse 0..1
+    final pulse = 0.5 + 0.5 * math.sin(_t * 8.0);
+
+    final outerBloom = Paint()
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 28)
+      ..color = _glowColor.withOpacity(0.45 + 0.35 * pulse);
+    canvas.drawCircle(center, radius * (1.35 + 0.1 * pulse), outerBloom);
+
+    // Inner glow a bit tighter and brighter
     final innerGlow = Paint()
       ..style = PaintingStyle.fill
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
-      ..color = Colors.orangeAccent.withOpacity(0.35);
-    canvas.drawCircle(center, radius * 0.9, innerGlow);
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10)
+      ..color = _glowColor.withOpacity(0.35 + 0.25 * pulse);
+    canvas.drawCircle(center, radius * (0.95 + 0.05 * pulse), innerGlow);
 
     // Now draw the sprite itself centered via SpriteComponent's render
     super.render(canvas);
@@ -110,7 +132,7 @@ class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
           removeFromParent();
         } else {
           final explosion = Explosion(
-            color: Colors.deepOrangeAccent,
+            color: _glowColor, // match the blast's vibrant color
             maxRadius: 48,
             duration: 0.5,
           )..position = player.position.clone();

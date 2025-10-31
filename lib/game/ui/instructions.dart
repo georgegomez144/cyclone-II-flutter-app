@@ -64,11 +64,19 @@ class InstructionsOverlay extends StatelessWidget {
                         ),
                         SizedBox(height: 10),
                         _SpriteRow(
+                          label: 'Enemy',
+                          assetPath: 'lib/assets/enemy_sprite.png',
+                          description:
+                              'Rotating shield protects the core. Shoot gaps you create to damage the enemy core.',
+                          animate: _Anim.rotate,
+                        ),
+                        SizedBox(height: 10),
+                        _SpriteRow(
                           label: 'Enemy Blast',
                           assetPath: 'lib/assets/enemy_blast.png',
                           description:
                               'Glowing bolts launched by the enemy. Getting hit costs a life. Keep moving!',
-                          animate: _Anim.pulse,
+                          animate: _Anim.rotate,
                         ),
                         SizedBox(height: 10),
                         _SpriteRow(
@@ -76,7 +84,7 @@ class InstructionsOverlay extends StatelessWidget {
                           assetPath: 'lib/assets/spark_mine_sprite.png',
                           description:
                               'Drifts and can home in. On contact: heavy shield damage or death if shields are gone.',
-                          animate: _Anim.wiggle,
+                          animate: _Anim.rotate,
                         ),
                       ],
                     ),
@@ -90,7 +98,7 @@ class InstructionsOverlay extends StatelessWidget {
                           colorTint: Color(0xFFEFFF57),
                           description:
                               'Repairs your shield. Great after mine hits or risky plays.',
-                          animate: _Anim.pulse,
+                          animate: _Anim.rotate,
                         ),
                         SizedBox(height: 10),
                         _SpriteRow(
@@ -107,7 +115,7 @@ class InstructionsOverlay extends StatelessWidget {
                           assetPath: 'lib/assets/yummy_sprite.png',
                           colorTint: Color(0xFF69F0AE),
                           description: 'Grants an additional life.',
-                          animate: _Anim.wiggle,
+                          animate: _Anim.rotate,
                         ),
                         SizedBox(height: 10),
                         _SpriteRow(
@@ -116,7 +124,7 @@ class InstructionsOverlay extends StatelessWidget {
                           colorTint: Color(0xFFFF5252),
                           description:
                               'Hold the FIRE button to auto-fire a stream of bullets for a short time.',
-                          animate: _Anim.pulse,
+                          animate: _Anim.rotate,
                         ),
                         SizedBox(height: 10),
                         _SpriteRow(
@@ -126,6 +134,24 @@ class InstructionsOverlay extends StatelessWidget {
                           description:
                               'Temporarily fires 3 bullets in a spread. Great for carving shield gaps.',
                           animate: _Anim.rotate,
+                        ),
+                        SizedBox(height: 10),
+                        _SpriteRow(
+                          label: 'Triple Auto (Timed)',
+                          assetPath: 'lib/assets/yummy_sprite.png',
+                          colorTint: Color(0xFF00E5FF),
+                          description:
+                              'Combines Triple Spread with continuous auto‑fire for a limited time. Reverts when the timer ends.',
+                          animate: _Anim.rotate,
+                        ),
+                        SizedBox(height: 10),
+                        _SpriteRow(
+                          label: 'Lock',
+                          assetPath: 'lib/assets/yummy_sprite.png',
+                          colorTint: Color(0xFFBDBDBD),
+                          description:
+                              'Locks in your current yummies so you keep them after losing a life (one-time protection).',
+                          animate: _Anim.wiggle,
                         ),
                         SizedBox(height: 6),
                         Text(
@@ -209,7 +235,7 @@ class _SpriteRow extends StatelessWidget {
     required this.label,
     required this.assetPath,
     required this.description,
-    this.animate = _Anim.pulse,
+    this.animate = _Anim.rotate,
     this.colorTint,
   });
 

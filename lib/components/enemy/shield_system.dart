@@ -14,7 +14,7 @@ class EnemyShield extends PositionComponent {
     required this.yellowRadius,
     required this.orangeRadius,
     required this.redRadius,
-    this.strokeWidth = 4,
+    this.strokeWidth = 1.5,
   }) : super(size: Vector2.zero(), anchor: Anchor.center);
 
   final double yellowRadius;
@@ -36,9 +36,9 @@ class EnemyShield extends PositionComponent {
     await super.onLoad();
 
     // Spin speeds (radians/sec) and directions
-    const double spinSpeed = math.pi / 6; // 30 deg/sec base
+    const double spinSpeed = math.pi / 3; // 30 deg/sec base
     yellowRing = ShieldRing(
-      color: const Color(0xFFFFFF00),
+      color: const Color(0xFFDDFF00),
       glowColor: const Color(0xFFFFFF00).withOpacity(0.8),
       outerRadius: yellowRadius,
       innerRadius: math.max(0, yellowRadius - strokeWidth),
@@ -48,7 +48,7 @@ class EnemyShield extends PositionComponent {
     );
     orangeRing = ShieldRing(
       color: const Color(0xFFFFA500),
-      glowColor: const Color(0xFFFFA500).withOpacity(0.8),
+      glowColor: const Color(0xFFFFD500).withOpacity(0.8),
       outerRadius: orangeRadius,
       innerRadius: math.max(0, orangeRadius - strokeWidth),
       spinSpeed: spinSpeed * 0.9,
@@ -56,7 +56,7 @@ class EnemyShield extends PositionComponent {
     );
     redRing = ShieldRing(
       color: const Color(0xFFFF0000),
-      glowColor: const Color(0xFFFF0000).withOpacity(0.8),
+      glowColor: const Color(0xFFFF4400).withOpacity(0.8),
       outerRadius: redRadius,
       innerRadius: math.max(0, redRadius - strokeWidth * 1.2),
       // Slightly thicker
@@ -127,7 +127,7 @@ class ShieldRing extends PositionComponent {
     required this.clockwise,
   }) : super(size: Vector2.zero(), anchor: Anchor.center);
 
-  static const int sides = 12;
+  static const int sides = 16;
   final Color color;
   final Color glowColor;
   final double outerRadius;

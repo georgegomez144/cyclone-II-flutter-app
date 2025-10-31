@@ -11,6 +11,20 @@ class AudioManager {
   AudioManager._internal();
   static final AudioManager instance = AudioManager._internal();
 
+  // Transient suppression used for silent scripted scenes (e.g., startup demo)
+  bool _suppressSfx = false;
+
+  /// Runs [action] with SFX temporarily muted (BGM unaffected).
+  Future<T> withSfxMuted<T>(Future<T> Function() action) async {
+    final prev = _suppressSfx;
+    _suppressSfx = true;
+    try {
+      return await action();
+    } finally {
+      _suppressSfx = prev;
+    }
+  }
+
   // Track last play errors to avoid spamming retries/logs for missing assets
   static final Map<String, DateTime> _lastPlayErrorAt = <String, DateTime>{};
   static const Duration _retryBackoff = Duration(seconds: 5);
@@ -24,6 +38,13 @@ class AudioManager {
   );
 
   bool get isEnabled => _sfxEnabledNotifier.value;
+
+  /// Master volume in [0..1]. Multiplies all SFX and BGM volumes.
+  double _masterVolume = 0.8;
+  double get masterVolume => _masterVolume;
+  void setMasterVolume(double v) {
+    _masterVolume = v.clamp(0.0, 1.0);
+  }
 
   // Convert various asset path inputs to the filename expected by
   // FlameAudio when using a fixed AudioCache prefix (see init()).
@@ -103,18 +124,23 @@ class AudioManager {
     } else {
       // Stop any active BGM and SFX loops
       await FlameAudio.bgm.stop();
+      _bgmActive = false;
     }
   }
 
   // --- BGM (background hum) -------------------------------------------------
+  bool _bgmActive = false;
+  double _bgmBaseVolume = 0.25;
+
   Future<void> playBackgroundHum({double volume = 0.25}) async {
     if (!isEnabled) return;
+    _bgmBaseVolume = volume.clamp(0.0, 1.0);
     // Ensure BGM uses the background hum and loops
     await FlameAudio.bgm.stop();
     try {
       await FlameAudio.bgm.play(
         _toAudioKey(Assets.audioBackgroundHum),
-        volume: volume,
+        volume: (_bgmBaseVolume * _masterVolume).clamp(0.0, 1.0),
       );
     } catch (e) {
       if (kDebugMode) {
@@ -126,6 +152,7 @@ class AudioManager {
 
   Future<void> stopBackgroundHum() async {
     await FlameAudio.bgm.stop();
+    _bgmActive = false;
   }
 
   Future<void> pauseBackgroundHum() async {
@@ -136,10 +163,36 @@ class AudioManager {
     if (!isEnabled) return;
     try {
       await FlameAudio.bgm.resume();
+      _bgmActive = true;
     } catch (_) {
       // If resume fails (e.g., nothing loaded), start playing again.
-      await playBackgroundHum();
+      await playBackgroundHum(volume: _bgmBaseVolume);
     }
+  }
+
+  void applyBgmVolume() async {
+    if (!_bgmActive) return;
+    // Re-play the current BGM with updated effective volume. This may cause a
+    // very short gap, but keeps implementation simple and reliable across
+    // platforms.
+    try {
+      await FlameAudio.bgm.stop();
+      await FlameAudio.bgm.play(
+        _toAudioKey(Assets.audioBackgroundHum),
+        volume: (_bgmBaseVolume * _masterVolume).clamp(0.0, 1.0),
+      );
+      _bgmActive = true;
+    } catch (e) {
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('BGM volume apply failed: $e');
+      }
+    }
+  }
+
+  void updateMasterVolume(double v) {
+    setMasterVolume(v);
+    applyBgmVolume();
   }
 
   // --- SFX helpers ----------------------------------------------------------
@@ -186,6 +239,7 @@ class AudioManager {
 
   void _play(String file, {double volume = 1.0}) {
     if (!isEnabled) return;
+    if (_suppressSfx) return;
 
     // Simple backoff if we recently failed to play this key (prevents log spam)
     final lastErr = _lastPlayErrorAt[file];
@@ -194,7 +248,8 @@ class AudioManager {
     }
 
     try {
-      FlameAudio.play(file, volume: volume);
+      final vol = (volume * _masterVolume).clamp(0.0, 1.0);
+      FlameAudio.play(file, volume: vol);
     } catch (e) {
       _lastPlayErrorAt[file] = DateTime.now();
       if (kDebugMode) {

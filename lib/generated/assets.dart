@@ -29,11 +29,33 @@ class Assets {
   static const String audioPlayerShot = 'lib/assets/audio/player_shot.mp3';
   static const String audioYouLose = 'lib/assets/audio/you_lose.mp3';
   static const String audioYummyFx = 'lib/assets/audio/yummy_fx.mp3';
+  static const String effectsExplosion =
+      'lib/components/effects/explosion.dart';
+  static const String enemyEnemyBlast = 'lib/components/enemy/enemy_blast.dart';
+  static const String enemyEnemyCore = 'lib/components/enemy/enemy_core.dart';
+  static const String enemyEnemyMainShot =
+      'lib/components/enemy/enemy_main_shot.dart';
+  static const String enemyEnemySprite =
+      'lib/components/enemy/enemy_sprite.dart';
+  static const String enemyShieldSystem =
+      'lib/components/enemy/shield_system.dart';
+  static const String gameAudioManager = 'lib/game/audio_manager.dart';
+  static const String gameCycloneGame = 'lib/game/cyclone_game.dart';
+  static const String gameGameManager = 'lib/game/game_manager.dart';
+  static const String generatedAssets = 'lib/generated/assets.dart';
+  static const String hazardsMine = 'lib/components/hazards/mine.dart';
+  static const String libMain = 'lib/main.dart';
+  static const String libUtils = 'lib/utils.dart';
   static const String logoCycloneIcon = 'lib/assets/logo/cyclone_icon.png';
   static const String logoCycloneImage = 'lib/assets/logo/cyclone_image.jpg';
   static const String logoCycloneLogo = 'lib/assets/logo/cyclone_logo.png';
   static const String logoCycloneLogoTitle =
       'lib/assets/logo/cyclone_logo_title.png';
+  static const String pickupsYummyPickup =
+      'lib/components/pickups/yummy_pickup.dart';
+  static const String playerPlayer = 'lib/components/player/player.dart';
+  static const String playerPlayerBullet =
+      'lib/components/player/player_bullet.dart';
   static const String redHatTextOFL =
       'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/OFL.txt';
   static const String redHatTextREADME =
@@ -62,4 +84,11 @@ class Assets {
       'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-SemiBold.ttf';
   static const String staticRedHatTextSemiBoldItalic =
       'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-SemiBoldItalic.ttf';
+  static const String uiControlsOverlay = 'lib/game/ui/controls_overlay.dart';
+  static const String uiHomeMenu = 'lib/game/ui/home_menu.dart';
+  static const String uiHowToPlayPanel = 'lib/game/ui/how_to_play_panel.dart';
+  static const String uiHud = 'lib/game/ui/hud.dart';
+  static const String uiInstructions = 'lib/game/ui/instructions.dart';
+  static const String uiLoadingScreen = 'lib/game/ui/loading_screen.dart';
+  static const String worldStarfield = 'lib/game/world/starfield.dart';
 }

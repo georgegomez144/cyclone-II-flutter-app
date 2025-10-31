@@ -58,6 +58,14 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
         children: [
           // Joystick bottom-left
           Positioned(left: 16, bottom: 16, child: _buildJoystick()),
+          // Vertical volume slider along right edge, centered vertically
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 24),
+              child: _buildVerticalVolume(),
+            ),
+          ),
           Positioned(
             right: 24,
             top: isPhone ? 120 : 40,
@@ -153,6 +161,60 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildVerticalVolume() {
+    final gm = widget.game.gm;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      width: 50,
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white24, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 6,
+            offset: const Offset(2, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.volume_up, color: Colors.amber),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 160,
+            child: RotatedBox(
+              quarterTurns: 3,
+              child: ValueListenableBuilder<double>(
+                valueListenable: gm.volume,
+                builder: (context, vol, _) => Slider(
+                  value: vol,
+                  onChanged: (v) => gm.volume.value = v,
+                  activeColor: Colors.deepOrange,
+                  inactiveColor: Colors.amber.shade200,
+                  thumbColor: Colors.red,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ValueListenableBuilder<double>(
+            valueListenable: gm.volume,
+            builder: (context, vol, _) => Text(
+              '${(vol * 100).round()}%',
+              style: const TextStyle(
+                color: Colors.amber,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

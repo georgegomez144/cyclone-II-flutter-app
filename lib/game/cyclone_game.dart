@@ -20,6 +20,10 @@ import 'package:cyclone_game/game/audio_manager.dart';
 /// CycloneGame: root game per blueprint
 class CycloneGame extends FlameGame
     with HasCollisionDetection, HasKeyboardHandlerComponents {
+  // Runs a silent scripted intro using real game components
+  bool isStartupDemo = false;
+  bool isPlaying = false;
+  VoidCallback? _onVolChanged;
   late final GameManager gm;
   late final Player player;
   late final Starfield starfield;
@@ -27,6 +31,15 @@ class CycloneGame extends FlameGame
   bool _levelTransitioning = false;
   bool _isRespawning = false;
   TextComponent? _gameOverBanner;
+
+  @override
+  void onRemove() {
+    if (_onVolChanged != null) {
+      gm.volume.removeListener(_onVolChanged!);
+      _onVolChanged = null;
+    }
+    super.onRemove();
+  }
 
   // Spawner timers
   double _pickupSpawnTimer = 0;
@@ -40,6 +53,7 @@ class CycloneGame extends FlameGame
   @override
   void update(double dt) {
     super.update(dt);
+    if (!isPlaying) return;
     if (_levelTransitioning) return;
 
     // Tick timed Triple+Auto weapon override and auto-revert when finished
@@ -85,6 +99,13 @@ class CycloneGame extends FlameGame
     // ignore: unawaited_futures
     gm.loadPrefs();
 
+    // Apply initial master volume and listen for changes
+    AudioManager.instance.updateMasterVolume(gm.volume.value);
+    _onVolChanged = () {
+      AudioManager.instance.updateMasterVolume(gm.volume.value);
+    };
+    gm.volume.addListener(_onVolChanged!);
+
     // World setup (default viewport)
     starfield = Starfield(sizeProvider: () => size);
 
@@ -96,17 +117,27 @@ class CycloneGame extends FlameGame
       ..position = center.clone()
       ..anchor = Anchor.center;
 
-    // Layering: background starfield, enemy, then player
+    // Layering: background starfield; gameplay entities are added when a new game starts
     await add(starfield);
-    await _spawnEnemy();
-    await add(player);
+
+    // Immediately run the silent startup demo, then show Home
+    resumeEngine();
+    // ignore: discarded_futures
+    playStartupDemo();
   }
 
   void startGame() {
+    // If a startup demo or any intro overlays are still around, force-clean them
+    isStartupDemo = false;
+    // Remove any leftover fade or logo components to ensure a clean start
+    children.whereType<_BlackFade>().forEach((c) => c.removeFromParent());
+    children.whereType<_LogoSplash>().forEach((c) => c.removeFromParent());
+
     // Fresh game state
     gm.resetForNewGame();
     _levelTransitioning = false;
     _isRespawning = false;
+    isPlaying = true;
 
     // Ensure Game Over banner is cleared
     _gameOverBanner?.removeFromParent();
@@ -150,6 +181,7 @@ class CycloneGame extends FlameGame
   }
 
   Future<void> onEnemyDefeated() async {
+    if (isStartupDemo) return; // ignore victory during startup demo
     if (_levelTransitioning) return;
     _levelTransitioning = true;
 
@@ -285,6 +317,7 @@ class CycloneGame extends FlameGame
 
   // Handle player being destroyed by enemy fire
   void onPlayerHit() {
+    if (isStartupDemo) return; // no life loss during startup demo
     if (_isRespawning || _levelTransitioning) return;
 
     // SFX: player ship destroyed
@@ -373,29 +406,22 @@ class CycloneGame extends FlameGame
     // Clear transitions
     _levelTransitioning = false;
     _isRespawning = false;
+    isPlaying = false;
 
     // Clear banners
     _gameOverBanner?.removeFromParent();
     _gameOverBanner = null;
 
-    // Reset game model
+    // Reset game model (scores, lives, etc.)
     gm.resetForNewGame();
 
-    // Ensure player is present and centered
-    if (!player.isMounted) {
-      add(player);
-    }
-    player
-      ..angle = 0
-      ..position = size / 2;
-
-    // Remove enemies and projectiles
+    // Remove gameplay entities
     _removeAllEnemies();
     _removeAllProjectiles();
-
-    // Respawn a fresh enemy at center for next game
-    // ignore: discarded_futures
-    _spawnEnemy();
+    if (player.isMounted) {
+      player.removeFromParent();
+    }
+    // Leave starfield running; player/enemy will be added when a new game actually starts
   }
 
   void _removeAllEnemies() {
@@ -530,5 +556,235 @@ class CycloneGame extends FlameGame
       p = _randomSpawnAwayFromPlayer();
     }
     return p;
+  }
+
+  Future<void> playStartupDemo() async {
+    if (isStartupDemo) return;
+    isStartupDemo = true;
+    isPlaying = false; // ensure normal spawners won’t run
+
+    // Clear any previous entities
+    _removeAllEnemies();
+    _removeAllProjectiles();
+    if (player.isMounted) {
+      player.removeFromParent();
+    }
+
+    // Spawn centered enemy
+    await _spawnEnemy();
+
+    // Place player at bottom-left and aim at center
+    if (!player.isMounted) {
+      await add(player);
+    }
+    player.revive();
+    final Vector2 pPos = Vector2(size.x * 0.18, size.y * 0.82);
+    player.position = pPos;
+    final Vector2 center = size / 2;
+    final Vector2 dirToCenter = (center - pPos).normalized();
+    player.angle = math.atan2(dirToCenter.y, dirToCenter.x) + math.pi / 2;
+
+    // Gentle drift toward center during the demo
+    add(
+      _DriftTween(
+        target: player,
+        from: pPos,
+        to: pPos + dirToCenter * (size.length / 28),
+        duration: 1.6,
+      ),
+    );
+
+    // Fire 5 silent shots toward the center gap
+    await AudioManager.instance.withSfxMuted(() async {
+      for (int i = 0; i < 5; i++) {
+        add(
+          TimerComponent(
+            period: 0.12 * i,
+            removeOnFinish: true,
+            onTick: () {
+              player.fireSingleNoLimit();
+            },
+          ),
+        );
+      }
+    });
+
+    // One enemy blast toward player (silent)
+    await AudioManager.instance.withSfxMuted(() async {
+      add(
+        TimerComponent(
+          period: 0.8,
+          removeOnFinish: true,
+          onTick: () {
+            final e = enemy;
+            if (e == null) return;
+            final Vector2 d = (player.position - e.position).normalized();
+            final blast = EnemyBlast(
+              start: e.position + d * (e.size.y * 0.5 + 8),
+              direction: d,
+            );
+            add(blast);
+          },
+        ),
+      );
+    });
+
+    // After ~2.4s start fading gameplay to black, then show logo and home
+    add(
+      TimerComponent(
+        period: 2.4,
+        removeOnFinish: true,
+        onTick: () {
+          final fade = _BlackFade(
+            duration: 0.6,
+            onDone: () async {
+              // Cleanup gameplay visuals
+              _removeAllEnemies();
+              if (player.isMounted) player.removeFromParent();
+              await _showTitleThenHome();
+            },
+          );
+          add(fade);
+        },
+      ),
+    );
+  }
+
+  Future<void> _showTitleThenHome() async {
+    // Fade in logo for 1.5s, then fade out and go to Home
+    final logo = _LogoSplash(
+      fadeIn: 0.5,
+      hold: 1.5,
+      fadeOut: 0.6,
+      onFinished: () {
+        isStartupDemo = false;
+        pauseEngine();
+        overlays.add('home');
+      },
+    );
+    await add(logo);
+  }
+}
+
+// --- Simple helper components for the startup demo --------------------------
+
+class _DriftTween extends Component with HasGameRef<CycloneGame> {
+  _DriftTween({
+    required this.target,
+    required this.from,
+    required this.to,
+    required this.duration,
+  });
+  final PositionComponent target;
+  final Vector2 from;
+  final Vector2 to;
+  final double duration;
+  double _t = 0;
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (!target.isMounted) return;
+    _t += dt;
+    final r = (_t / duration).clamp(0.0, 1.0);
+    target.position = from + (to - from) * r;
+    if (r >= 1.0) removeFromParent();
+  }
+}
+
+class _BlackFade extends PositionComponent with HasGameRef<CycloneGame> {
+  _BlackFade({required this.duration, this.onDone}) : super(priority: 10000);
+  final double duration;
+  final VoidCallback? onDone;
+  double _t = 0;
+  bool _doneCalled = false;
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    position = Vector2.zero();
+    size = gameRef.size.clone();
+    anchor = Anchor.topLeft;
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _t += dt;
+    if (!_doneCalled && _t >= duration) {
+      _t = duration;
+      _doneCalled = true;
+      onDone?.call();
+      // Auto-remove the fade once complete to avoid blocking future gameplay
+      removeFromParent();
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final alpha = (_t / duration).clamp(0.0, 1.0);
+    final paint = Paint()..color = Colors.black.withOpacity(alpha);
+    canvas.drawRect(Offset.zero & Size(size.x, size.y), paint);
+  }
+}
+
+class _LogoSplash extends PositionComponent with HasGameRef<CycloneGame> {
+  _LogoSplash({
+    required this.fadeIn,
+    required this.hold,
+    required this.fadeOut,
+    this.onFinished,
+  }) : super(priority: 11000);
+  final double fadeIn;
+  final double hold;
+  final double fadeOut;
+  final VoidCallback? onFinished;
+  late Sprite _sprite;
+  double _t = 0;
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    position = Vector2.zero();
+    size = gameRef.size.clone();
+    anchor = Anchor.topLeft;
+    _sprite = await Sprite.load('logo/cyclone_logo_title.png');
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _t += dt;
+    final total = fadeIn + hold + fadeOut;
+    if (_t >= total) {
+      onFinished?.call();
+      removeFromParent();
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final total = fadeIn + hold + fadeOut;
+    final t = _t.clamp(0.0, total);
+    double alpha;
+    if (t <= fadeIn) {
+      alpha = (t / fadeIn);
+    } else if (t <= fadeIn + hold) {
+      alpha = 1.0;
+    } else {
+      final outT = (t - fadeIn - hold);
+      alpha = 1.0 - (outT / fadeOut);
+    }
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(alpha.clamp(0.0, 1.0));
+
+    // Center the logo sprite on screen
+    final screen = Size(size.x, size.y);
+    final targetW = screen.width * 0.62;
+    final ratio = targetW / (_sprite.srcSize.x);
+    final targetH = _sprite.srcSize.y * ratio;
+    final dst = Rect.fromCenter(
+      center: Offset(screen.width / 2, screen.height / 2),
+      width: targetW,
+      height: targetH,
+    );
+    _sprite.renderRect(canvas, dst, overridePaint: paint);
   }
 }

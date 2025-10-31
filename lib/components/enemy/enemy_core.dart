@@ -32,7 +32,7 @@ class EnemyCore extends PositionComponent
 
     // Add a circular hitbox for bullet collision
     add(
-      CircleHitbox.relative(0.9, parentSize: size)
+      CircleHitbox.relative(1.1, parentSize: size)
         ..collisionType = CollisionType.passive,
     );
   }
@@ -83,7 +83,7 @@ class EnemyCore extends PositionComponent
     if (other is PlayerBullet) {
       // Remove bullet and destroy the core on hit
       other.removeFromParent();
-      gameRef.gm.addScore(100);
+      gameRef.gm.addScore(1000);
       removeFromParent();
     }
   }
@@ -110,8 +110,8 @@ class EnemyCore extends PositionComponent
     canvas.drawPath(shipPath, hull);
     canvas.drawPath(shipPath, stroke);
 
-    // Draw a 12-sided glowing yellow ring around the enemy (4px thick)
-    const int sides = 12;
+    // Draw a 16-sided glowing yellow ring around the enemy (2px thick)
+    const int sides = 16;
     final double r = w * 0.8; // radius slightly larger than the ship
 
     canvas.save();
@@ -119,8 +119,8 @@ class EnemyCore extends PositionComponent
     canvas.translate(size.x / 2, size.y / 2);
 
     // Outer red ring (25% larger than orange)
-    final double rOuter = r * 1.25; // orange radius
-    final double rRed = rOuter * 1.25; // red radius = r * 1.5625
+    final double rOuter = r * 1.3; // orange radius
+    final double rRed = rOuter * 1.3; // red radius = r * 1.5625
 
     final Path redRingPath = Path();
     for (int i = 0; i < sides; i++) {
@@ -139,13 +139,13 @@ class EnemyCore extends PositionComponent
     final Paint redGlowPaint = Paint()
       ..color = Colors.red.withOpacity(0.9)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
+      ..strokeWidth = 2
       ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 10);
 
     final Paint redRingPaint = Paint()
       ..color = Colors.red
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
+      ..strokeWidth = 2;
 
     // Outer orange ring (25% larger than yellow)
     final Path outerRingPath = Path();
@@ -165,13 +165,13 @@ class EnemyCore extends PositionComponent
     final Paint outerGlowPaint = Paint()
       ..color = Colors.orange.withOpacity(0.9)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
+      ..strokeWidth = 2
       ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 10);
 
     final Paint outerRingPaint = Paint()
       ..color = Colors.orange
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
+      ..strokeWidth = 2;
 
     // Inner yellow ring (original)
     Path ringPath = Path();
@@ -191,13 +191,13 @@ class EnemyCore extends PositionComponent
     final glowPaint = Paint()
       ..color = Colors.yellowAccent.withOpacity(0.9)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
+      ..strokeWidth = 2
       ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 10);
 
     final ringPaint = Paint()
       ..color = Colors.yellowAccent
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
+      ..strokeWidth = 2;
 
     // Draw order: outermost red → orange → inner yellow (each: glow then stroke)
     canvas.drawPath(redRingPath, redGlowPaint);

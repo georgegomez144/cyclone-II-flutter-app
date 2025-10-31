@@ -338,18 +338,55 @@ class _HomeMenuState extends State<HomeMenu> {
                   spacing: 8,
                   children: [
                     for (final option in Difficulty.values)
-                      ChoiceChip(
-                        label: Text(
-                          _diffLabel(option),
-                          style: const TextStyle(color: Colors.black),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: diff == option
+                                ? [Colors.red.shade800, Colors.amber]
+                                : [Color(0x00000000), Color(0x00000000)],
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            width: 2,
+                            color: Colors.red.shade600.withOpacity(0.6),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              spreadRadius: 1,
+                              blurRadius: 4,
+                              offset: const Offset(2, 2),
+                            ),
+                          ],
                         ),
-                        selected: diff == option,
-                        selectedColor: Colors.red,
-                        backgroundColor: Colors.red.shade200,
-                        onSelected: (_) {
-                          gm.difficulty.value = option;
-                          gm.savePrefs();
-                        },
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () {
+                              gm.difficulty.value = option;
+                              gm.savePrefs();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
+                              child: Text(
+                                _diffLabel(option),
+                                style: TextStyle(
+                                  color: diff == option
+                                      ? Colors.black
+                                      : Colors.deepOrangeAccent.shade200,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                   ],
                 ),

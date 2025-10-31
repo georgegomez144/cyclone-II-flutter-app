@@ -305,7 +305,7 @@ class Player extends PositionComponent
     if (!hasContinuousFire) {
       if (_activeBullets >= maxSimultaneousBullets) return;
     } else {
-      if (_activeBullets >= 20) return;
+      if (_activeBullets >= 30) return;
     }
     if (_cooldown > 0) return;
 
@@ -319,7 +319,7 @@ class Player extends PositionComponent
 
     if (hasTripleSpread) {
       // Fire 3 bullets with slight spread angles, respecting capacity
-      final double spreadRad = 12 * math.pi / 220;
+      final double spreadRad = 12 * math.pi / 300;
       final dirs = <Vector2>[
         baseDir.clone()..rotate(-spreadRad),
         baseDir.clone(),
