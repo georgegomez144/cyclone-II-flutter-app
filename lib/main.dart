@@ -6,9 +6,12 @@ import 'package:cyclone_game/game/ui/hud.dart';
 import 'package:cyclone_game/game/ui/home_menu.dart';
 import 'package:cyclone_game/game/ui/controls_overlay.dart';
 import 'package:cyclone_game/game/ui/instructions.dart';
+import 'package:cyclone_game/game/audio_manager.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize audio manager and preload SFX
+  await AudioManager.instance.init();
   final game = CycloneGame();
   runApp(
     MaterialApp(

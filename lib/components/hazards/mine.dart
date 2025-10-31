@@ -6,6 +6,7 @@ import 'package:cyclone_game/components/player/player_bullet.dart';
 import 'package:flame/components.dart';
 import 'package:flame/collisions.dart';
 import 'package:flutter/material.dart';
+import 'package:cyclone_game/game/audio_manager.dart';
 
 /// Spark mine that slowly moves around and homes toward the player's ship.
 /// It can get caught on the enemy's shield rings and orbit until it finds
@@ -21,7 +22,7 @@ class SparkMine extends SpriteComponent
   }
 
   // Movement tuning
-  final double maxSpeed = 80; // px/sec
+  final double maxSpeed = 100; // px/sec
   final double accel = 50; // px/sec^2
   final double orbitSpeed = 60; // px/sec along ring
   final double shipHitRadius = 12; // reduced with size
@@ -35,6 +36,17 @@ class SparkMine extends SpriteComponent
     add(
       CircleHitbox.relative(0.9, parentSize: size)
         ..collisionType = CollisionType.active,
+    );
+
+    // Quiet periodic buzzing while the mine is active
+    add(
+      TimerComponent(
+        period: 1.6,
+        repeat: true,
+        onTick: () {
+          AudioManager.instance.playMineBuzz();
+        },
+      ),
     );
   }
 
@@ -50,6 +62,8 @@ class SparkMine extends SpriteComponent
       other.removeFromParent();
       // Award points for destroying a mine
       gameRef.gm.addScore(20);
+      // SFX: mine destroyed
+      AudioManager.instance.playMineExplode();
       // Small spark effect and destroy the mine
       final spark = _SparkEffect()..position = position.clone();
       gameRef.add(spark);
@@ -144,6 +158,8 @@ class SparkMine extends SpriteComponent
     final d = position.distanceTo(player.position);
     if (d <= shipHitRadius) {
       _applyMineDamage(gameRef.gm);
+      // SFX: mine exploded on player
+      AudioManager.instance.playMineExplode();
       // Small explosion flash
       final spark = _SparkEffect()..position = position.clone();
       gameRef.add(spark);

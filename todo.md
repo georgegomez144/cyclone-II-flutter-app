@@ -10,3 +10,10 @@ sound fx (add an icon button to the game screen above the pause/resume to toggle
 - use this sound for player ship explode: assets/audio/player_explode.mp3
 - use this sound when picking up a yummy: assets/audio/yummy_fx.mp3
 - use this sound when yummy is destroyed or disappears: assets/audio/dont_want_it.mp3
+
+
+
+
+- yummy lock should only lock for one death and should be removed after that death and show only show after level 12
+- tripleautoyummy should only show after level 20
+- autoyummy should only show after level 5

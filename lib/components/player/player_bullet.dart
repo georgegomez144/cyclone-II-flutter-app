@@ -5,6 +5,7 @@ import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/components/enemy/enemy_sprite.dart';
 import 'package:cyclone_game/components/effects/explosion.dart';
 import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
+import 'package:cyclone_game/game/audio_manager.dart';
 
 /// Simple player bullet that flies straight with a lifetime and screen wrap
 class PlayerBullet extends PositionComponent
@@ -81,6 +82,8 @@ class PlayerBullet extends PositionComponent
     } else if (other is YummyPickup) {
       // Player bullets can destroy yummies; do not grant their effect.
       if (!other.isRemoving) {
+        // SFX: yummy destroyed / discarded by shot
+        AudioManager.instance.playYummyDiscard();
         other.removeFromParent();
       }
       consumed = true;

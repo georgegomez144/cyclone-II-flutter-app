@@ -8,6 +8,7 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
+import 'package:cyclone_game/game/audio_manager.dart';
 
 class Player extends PositionComponent
     with KeyboardHandler, CollisionCallbacks, HasGameRef<CycloneGame> {
@@ -309,6 +310,9 @@ class Player extends PositionComponent
     if (_cooldown > 0) return;
 
     _cooldown = bulletCooldown; // 100 ms between shots for all modes
+
+    // SFX for firing (once per trigger press)
+    AudioManager.instance.playPlayerShot();
 
     // Forward direction based on current angle (ship points up in local space)
     final baseDir = Vector2(0, -1)..rotate(angle);

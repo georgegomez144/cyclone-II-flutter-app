@@ -3,58 +3,63 @@ class Assets {
   Assets._();
 
   static const String aldrichAldrichRegular =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Aldrich/Aldrich-Regular.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Aldrich/Aldrich-Regular.ttf';
   static const String aldrichOFL =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Aldrich/OFL.txt';
-  static const String assetsCycloneIcon = 'assets/cyclone_icon.png';
-  static const String assetsCycloneImage = 'assets/cyclone_image.jpg';
-  static const String assetsCycloneLogo = 'assets/cyclone_logo.png';
-  static const String assetsCycloneLogoTitle = 'assets/cyclone_logo_title.png';
-  static const String assetsEnemyBlast = 'assets/enemy_blast.png';
-  static const String assetsEnemySprite = 'assets/enemy_sprite.png';
-  static const String assetsShipSpriteMoving = 'assets/ship_sprite_moving.png';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Aldrich/OFL.txt';
+  static const String assetsEnemyBlast = 'lib/assets/enemy_blast.png';
+  static const String assetsEnemySprite = 'lib/assets/enemy_sprite.png';
+  static const String assetsShipSpriteMoving =
+      'lib/assets/ship_sprite_moving.png';
   static const String assetsShipSpriteStationary =
-      'assets/ship_sprite_stationary.png';
-  static const String assetsSparkMineSprite = 'assets/spark_mine_sprite.png';
-  static const String assetsSplashscreen = 'assets/splashscreen.png';
-  static const String assetsYummySprite = 'assets/yummy_sprite.png';
-  static const String audioBackgroundHum = 'assets/audio/background_hum.mp3';
-  static const String audioBegin = 'assets/audio/begin.mp3';
-  static const String audioDontWantIt = 'assets/audio/dont_want_it.mp3';
-  static const String audioEnemyBlast = 'assets/audio/enemy_blast.mp3';
-  static const String audioEnemyExplode = 'assets/audio/enemy_explode.mp3';
-  static const String audioMineBuzzing = 'assets/audio/mine_buzzing.mp3';
-  static const String audioMineExplode = 'assets/audio/mine_explode.mp3';
-  static const String audioPlayerExplode = 'assets/audio/player_explode.mp3';
-  static const String audioPlayerShot = 'assets/audio/player_shot.mp3';
-  static const String audioYouLose = 'assets/audio/you_lose.mp3';
-  static const String audioYummyFx = 'assets/audio/yummy_fx.mp3';
+      'lib/assets/ship_sprite_stationary.png';
+  static const String assetsSparkMineSprite =
+      'lib/assets/spark_mine_sprite.png';
+  static const String assetsSplashscreen = 'lib/assets/splashscreen.png';
+  static const String assetsYummySprite = 'lib/assets/yummy_sprite.png';
+  static const String audioBackgroundHum =
+      'lib/assets/audio/background_hum.mp3';
+  static const String audioBegin = 'lib/assets/audio/begin.mp3';
+  static const String audioDontWantIt = 'lib/assets/audio/dont_want_it.mp3';
+  static const String audioEnemyBlast = 'lib/assets/audio/enemy_blast.mp3';
+  static const String audioEnemyExplode = 'lib/assets/audio/enemy_explode.mp3';
+  static const String audioMineBuzzing = 'lib/assets/audio/mine_buzzing.mp3';
+  static const String audioMineExplode = 'lib/assets/audio/mine_explode.mp3';
+  static const String audioPlayerExplode =
+      'lib/assets/audio/player_explode.mp3';
+  static const String audioPlayerShot = 'lib/assets/audio/player_shot.mp3';
+  static const String audioYouLose = 'lib/assets/audio/you_lose.mp3';
+  static const String audioYummyFx = 'lib/assets/audio/yummy_fx.mp3';
+  static const String logoCycloneIcon = 'lib/assets/logo/cyclone_icon.png';
+  static const String logoCycloneImage = 'lib/assets/logo/cyclone_image.jpg';
+  static const String logoCycloneLogo = 'lib/assets/logo/cyclone_logo.png';
+  static const String logoCycloneLogoTitle =
+      'lib/assets/logo/cyclone_logo_title.png';
   static const String redHatTextOFL =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/OFL.txt';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/OFL.txt';
   static const String redHatTextREADME =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/README.txt';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/README.txt';
   static const String redHatTextRedHatTextItalicVariableFontWght =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/RedHatText-Italic-VariableFont_wght.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/RedHatText-Italic-VariableFont_wght.ttf';
   static const String redHatTextRedHatTextVariableFontWght =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/RedHatText-VariableFont_wght.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/RedHatText-VariableFont_wght.ttf';
   static const String staticRedHatTextBold =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-Bold.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-Bold.ttf';
   static const String staticRedHatTextBoldItalic =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-BoldItalic.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-BoldItalic.ttf';
   static const String staticRedHatTextItalic =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-Italic.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-Italic.ttf';
   static const String staticRedHatTextLight =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-Light.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-Light.ttf';
   static const String staticRedHatTextLightItalic =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-LightItalic.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-LightItalic.ttf';
   static const String staticRedHatTextMedium =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-Medium.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-Medium.ttf';
   static const String staticRedHatTextMediumItalic =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-MediumItalic.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-MediumItalic.ttf';
   static const String staticRedHatTextRegular =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-Regular.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-Regular.ttf';
   static const String staticRedHatTextSemiBold =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-SemiBold.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-SemiBold.ttf';
   static const String staticRedHatTextSemiBoldItalic =
-      'assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-SemiBoldItalic.ttf';
+      'lib/assets/fonts/Aldrich,Red_Hat_Text,Roboto/Red_Hat_Text/static/RedHatText-SemiBoldItalic.ttf';
 }

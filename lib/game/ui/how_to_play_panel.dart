@@ -40,7 +40,7 @@ class HowToPlayContent extends StatelessWidget {
           children: [
             _SpriteRow(
               label: 'Enemy Core & Shield',
-              assetPath: 'assets/enemy_sprite.png',
+              assetPath: 'lib/assets/enemy_sprite.png',
               description:
                   'The core is protected by a rotating multi-ring shield. Shoot sections to make gaps, then hit the core to win.',
               animate: _Anim.rotate,
@@ -53,7 +53,7 @@ class HowToPlayContent extends StatelessWidget {
           children: [
             _SpriteRow(
               label: 'Player Ship',
-              assetPath: 'assets/ship_sprite_moving.png',
+              assetPath: 'lib/assets/ship_sprite_moving.png',
               description:
                   'You. Stay mobile, weave through threats, and line up shots on the enemy shield/core.',
               animate: _Anim.rotate,
@@ -61,7 +61,7 @@ class HowToPlayContent extends StatelessWidget {
             SizedBox(height: 10),
             _SpriteRow(
               label: 'Enemy Blast',
-              assetPath: 'assets/enemy_blast.png',
+              assetPath: 'lib/assets/enemy_blast.png',
               description:
                   'Glowing bolts launched by the enemy. Getting hit costs a life. Keep moving!',
               animate: _Anim.pulse,
@@ -69,7 +69,7 @@ class HowToPlayContent extends StatelessWidget {
             SizedBox(height: 10),
             _SpriteRow(
               label: 'Spark Mine',
-              assetPath: 'assets/spark_mine_sprite.png',
+              assetPath: 'lib/assets/spark_mine_sprite.png',
               description:
                   'Drifts and can home in. On contact: heavy shield damage or death if shields are gone.',
               animate: _Anim.wiggle,
@@ -82,7 +82,7 @@ class HowToPlayContent extends StatelessWidget {
           children: [
             _SpriteRow(
               label: 'Shield Refill',
-              assetPath: 'assets/yummy_sprite.png',
+              assetPath: 'lib/assets/yummy_sprite.png',
               colorTint: Color(0xFFEFFF57),
               description:
                   'Repairs your shield. Great after mine hits or risky plays.',
@@ -91,7 +91,7 @@ class HowToPlayContent extends StatelessWidget {
             SizedBox(height: 10),
             _SpriteRow(
               label: 'Points',
-              assetPath: 'assets/yummy_sprite.png',
+              assetPath: 'lib/assets/yummy_sprite.png',
               colorTint: Colors.white,
               description: 'Score boost. Collect to climb the leaderboard.',
               animate: _Anim.rotate,
@@ -99,7 +99,7 @@ class HowToPlayContent extends StatelessWidget {
             SizedBox(height: 10),
             _SpriteRow(
               label: 'Extra Life',
-              assetPath: 'assets/yummy_sprite.png',
+              assetPath: 'lib/assets/yummy_sprite.png',
               colorTint: Color(0xFF69F0AE),
               description: 'Grants an additional life.',
               animate: _Anim.wiggle,
@@ -107,7 +107,7 @@ class HowToPlayContent extends StatelessWidget {
             SizedBox(height: 10),
             _SpriteRow(
               label: 'Continuous Fire',
-              assetPath: 'assets/yummy_sprite.png',
+              assetPath: 'lib/assets/yummy_sprite.png',
               colorTint: Color(0xFFFF5252),
               description:
                   'Hold the FIRE button to auto-fire a stream of bullets for a short time.',
@@ -116,7 +116,7 @@ class HowToPlayContent extends StatelessWidget {
             SizedBox(height: 10),
             _SpriteRow(
               label: 'Triple Spread',
-              assetPath: 'assets/yummy_sprite.png',
+              assetPath: 'lib/assets/yummy_sprite.png',
               colorTint: Color(0xFF64B5F6),
               description:
                   'Temporarily fires 3 bullets in a spread. Great for carving shield gaps.',

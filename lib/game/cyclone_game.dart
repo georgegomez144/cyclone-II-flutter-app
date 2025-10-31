@@ -15,6 +15,7 @@ import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame/flame.dart';
 import 'package:flutter/material.dart';
+import 'package:cyclone_game/game/audio_manager.dart';
 
 /// CycloneGame: root game per blueprint
 class CycloneGame extends FlameGame
@@ -75,9 +76,9 @@ class CycloneGame extends FlameGame
     _pickupSpawnTimer = 0;
     _mineSpawnTimer = 0;
 
-    // Fix asset path: our images are under assets/ (not assets/images/).
-    // Ensure Flame's image cache looks under assets/ for Sprite.load('*.png').
-    images.prefix = 'assets/';
+    // Fix asset path: all images are under lib/assets/.
+    // Ensure Flame's image cache looks under lib/assets/ for Sprite.load('*.png').
+    images.prefix = 'lib/assets/';
 
     gm = GameManager();
     // Load persisted settings/high scores but don't block UI heavily
@@ -127,6 +128,12 @@ class CycloneGame extends FlameGame
     overlays.remove('instructions');
     overlays.add('hud');
     overlays.add('controls');
+
+    // Audio: new game begin SFX and start background hum (looping quietly)
+    AudioManager.instance.playBegin();
+    // ignore: discarded_futures
+    AudioManager.instance.playBackgroundHum(volume: 0.22);
+
     resumeGame();
   }
 
@@ -151,6 +158,8 @@ class CycloneGame extends FlameGame
 
     // Remove current enemy safely if present
     if (enemy != null && enemy!.isMounted) {
+      // SFX: enemy destroyed
+      AudioManager.instance.playEnemyExplode();
       enemy!.removeFromParent();
     }
     enemy = null;
@@ -248,15 +257,21 @@ class CycloneGame extends FlameGame
 
   void pauseGame() {
     pauseEngine();
+    // ignore: discarded_futures
+    AudioManager.instance.pauseBackgroundHum();
   }
 
   void resumeGame() {
     resumeEngine();
+    // ignore: discarded_futures
+    AudioManager.instance.resumeBackgroundHum();
   }
 
   void exitToHome() {
     // Reset gameplay so next start is fresh from level 1
     resetGameState();
+    // ignore: discarded_futures
+    AudioManager.instance.stopBackgroundHum();
     pauseEngine();
     overlays.remove('hud');
     overlays.remove('controls');
@@ -271,6 +286,9 @@ class CycloneGame extends FlameGame
   // Handle player being destroyed by enemy fire
   void onPlayerHit() {
     if (_isRespawning || _levelTransitioning) return;
+
+    // SFX: player ship destroyed
+    AudioManager.instance.playPlayerExplode();
 
     // Mark player dead and remove visual if still mounted
     player.kill();
@@ -310,6 +328,11 @@ class CycloneGame extends FlameGame
     _removeAllEnemies();
     _removeAllProjectiles();
 
+    // Audio: play game over sting and stop background hum
+    AudioManager.instance.playGameOver();
+    // ignore: discarded_futures
+    AudioManager.instance.stopBackgroundHum();
+
     // Remove HUD/controls; keep engine running so starfield animates
     overlays.remove('hud');
     overlays.remove('controls');
@@ -323,7 +346,7 @@ class CycloneGame extends FlameGame
       priority: 1000,
       textRenderer: TextPaint(
         style: const TextStyle(
-          color: Colors.redAccent,
+          color: Colors.orange,
           fontSize: 48,
           fontWeight: FontWeight.bold,
         ),

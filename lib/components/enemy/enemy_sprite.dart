@@ -8,6 +8,7 @@ import 'package:cyclone_game/utils.dart';
 import 'package:cyclone_game/game/game_manager.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:cyclone_game/game/audio_manager.dart';
 
 /// Simple enemy ship sprite pinned to the center of the screen.
 /// - Slowly turns to track the player with a capped turn rate that
@@ -149,6 +150,9 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
     final Vector2 fwd = Vector2(0, -1)..rotate(angle);
     final double spawnDist = (size.y / 2) + 6.0; // just ahead of the sprite tip
     final Vector2 startPos = position + fwd * spawnDist;
+
+    // SFX: enemy blast fired
+    AudioManager.instance.playEnemyBlast();
 
     final blast = EnemyBlast(
       start: startPos,

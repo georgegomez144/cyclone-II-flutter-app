@@ -6,6 +6,7 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:cyclone_game/game/audio_manager.dart';
 
 /// Base pickup component rendered with the `assets/yummy_sprite.png` sprite.
 /// Provides a small floating + flipping animation and handles collision
@@ -56,6 +57,8 @@ abstract class YummyPickup extends SpriteComponent
         removeOnFinish: true,
         onTick: () {
           if (!isRemoving) {
+            // SFX: yummy expired / discarded
+            AudioManager.instance.playYummyDiscard();
             removeFromParent();
           }
         },
@@ -103,6 +106,8 @@ abstract class YummyPickup extends SpriteComponent
   ) {
     super.onCollisionStart(intersectionPoints, other);
     if (other == gameRef.player) {
+      // SFX: pickup collected
+      AudioManager.instance.playYummyPickup();
       applyEffect(gameRef.gm);
       // Small floating text feedback
       _spawnFloatingText();

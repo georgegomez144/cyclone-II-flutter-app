@@ -4,6 +4,7 @@ import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/utils.dart';
 import 'package:flame/components.dart' show Vector2;
 import 'package:flutter/material.dart';
+import 'package:cyclone_game/game/audio_manager.dart';
 
 class ControlsOverlay extends StatefulWidget {
   const ControlsOverlay({super.key, required this.game});
@@ -62,6 +63,7 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
             top: isPhone ? 120 : 40,
             child: _buildExitButton(),
           ),
+          Positioned(right: 24, bottom: 200, child: _buildSfxToggle()),
           Positioned(right: 24, bottom: 140, child: _buildPauseButton()),
           // Controls cluster bottom-right: Pause/Exit above Fire button
           Positioned(right: 24, bottom: 24, child: _buildActionCluster()),
@@ -108,6 +110,49 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
         ),
         size: const Size(160, 160),
       ),
+    );
+  }
+
+  Widget _buildSfxToggle() {
+    return ValueListenableBuilder<bool>(
+      valueListenable: AudioManager.instance.sfxEnabled,
+      builder: (context, enabled, _) {
+        return ElevatedButton.icon(
+          onPressed: () async {
+            await AudioManager.instance.setEnabled(!enabled);
+            setState(() {});
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blueGrey.withOpacity(0.1),
+            foregroundColor: Colors.blueGrey.shade200,
+            elevation: 8,
+            shadowColor: Colors.blueGrey.withOpacity(0.3),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            side: BorderSide(
+              color: Colors.blueGrey.shade400.withOpacity(0.5),
+              width: 2,
+            ),
+          ),
+          icon: Icon(enabled ? Icons.volume_up : Icons.volume_off),
+          label: Text(
+            enabled ? 'SFX On' : 'SFX Off',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+              shadows: [
+                Shadow(
+                  color: Colors.blueGrey.withOpacity(0.8),
+                  offset: const Offset(0, 0),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

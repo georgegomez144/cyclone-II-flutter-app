@@ -50,7 +50,7 @@ class _HomeMenuState extends State<HomeMenu> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Image.asset('assets/cyclone_logo_title.png'),
+                    Image.asset('lib/assets/logo/cyclone_logo_title.png'),
                     const SizedBox(height: 24),
                     _highScores(gm),
                     const SizedBox(height: 16),
