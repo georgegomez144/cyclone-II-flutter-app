@@ -350,7 +350,7 @@ class _HomeMenuState extends State<HomeMenu> {
                                 ? [Colors.red.shade800, Colors.amber]
                                 : [Color(0x00000000), Color(0x00000000)],
                           ),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(32),
                           border: Border.all(
                             width: 2,
                             color: Colors.red.shade600.withOpacity(0.6),
@@ -367,7 +367,7 @@ class _HomeMenuState extends State<HomeMenu> {
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(32),
                             onTap: () {
                               gm.difficulty.value = option;
                               gm.savePrefs();
@@ -420,7 +420,7 @@ class _HomeMenuState extends State<HomeMenu> {
           end: Alignment.bottomRight,
           colors: [Colors.red.shade800, Colors.deepOrange, Colors.amber],
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(32),
         border: Border.all(
           width: 2,
           color: Colors.red.shade600.withValues(alpha: 0.6),

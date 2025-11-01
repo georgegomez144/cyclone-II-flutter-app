@@ -81,11 +81,11 @@ class HowToPlayContent extends StatelessWidget {
           title: 'Yummies (Pickups)',
           children: [
             _SpriteRow(
-              label: 'Shield Refill',
+              label: 'Shield +1',
               assetPath: 'lib/assets/yummy_sprite.png',
               colorTint: Color(0xFFEFFF57),
               description:
-                  'Repairs your shield. Great after mine hits or risky plays.',
+                  'Grants a one-hit shield that blocks the next enemy blast.',
               animate: _Anim.pulse,
             ),
             SizedBox(height: 10),
@@ -121,6 +121,24 @@ class HowToPlayContent extends StatelessWidget {
               description:
                   'Temporarily fires 3 bullets in a spread. Great for carving shield gaps.',
               animate: _Anim.rotate,
+            ),
+            SizedBox(height: 10),
+            _SpriteRow(
+              label: 'Triple Auto (Timed)',
+              assetPath: 'lib/assets/yummy_sprite.png',
+              colorTint: Color(0xFF00E5FF),
+              description:
+                  'Combines Triple Spread with continuous auto‑fire for a limited time. Reverts when the timer ends.',
+              animate: _Anim.rotate,
+            ),
+            SizedBox(height: 10),
+            _SpriteRow(
+              label: 'Lock',
+              assetPath: 'lib/assets/yummy_sprite.png',
+              colorTint: Color(0xFFBDBDBD),
+              description:
+                  'Locks in your current yummies so you keep them after losing a life (one-time protection).',
+              animate: _Anim.wiggle,
             ),
             SizedBox(height: 6),
             Text(

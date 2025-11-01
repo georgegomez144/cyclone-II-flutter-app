@@ -93,11 +93,11 @@ class InstructionsOverlay extends StatelessWidget {
                       title: 'Yummies (Pickups)',
                       children: const [
                         _SpriteRow(
-                          label: 'Shield Refill',
+                          label: 'Shield +1',
                           assetPath: 'lib/assets/yummy_sprite.png',
                           colorTint: Color(0xFFEFFF57),
                           description:
-                              'Repairs your shield. Great after mine hits or risky plays.',
+                              'Grants a one-hit shield that blocks the next enemy blast.',
                           animate: _Anim.rotate,
                         ),
                         SizedBox(height: 10),
@@ -120,6 +120,7 @@ class InstructionsOverlay extends StatelessWidget {
                         SizedBox(height: 10),
                         _SpriteRow(
                           label: 'Continuous Fire',
+                          icon: Icons.more_vert,
                           assetPath: 'lib/assets/yummy_sprite.png',
                           colorTint: Color(0xFFFF5252),
                           description:
@@ -129,6 +130,7 @@ class InstructionsOverlay extends StatelessWidget {
                         SizedBox(height: 10),
                         _SpriteRow(
                           label: 'Triple Spread',
+                          icon: Icons.workspaces,
                           assetPath: 'lib/assets/yummy_sprite.png',
                           colorTint: Color(0xFF64B5F6),
                           description:
@@ -138,6 +140,7 @@ class InstructionsOverlay extends StatelessWidget {
                         SizedBox(height: 10),
                         _SpriteRow(
                           label: 'Triple Auto (Timed)',
+                          icon: Icons.workspaces,
                           assetPath: 'lib/assets/yummy_sprite.png',
                           colorTint: Color(0xFF00E5FF),
                           description:
@@ -147,6 +150,7 @@ class InstructionsOverlay extends StatelessWidget {
                         SizedBox(height: 10),
                         _SpriteRow(
                           label: 'Lock',
+                          icon: Icons.lock,
                           assetPath: 'lib/assets/yummy_sprite.png',
                           colorTint: Color(0xFFBDBDBD),
                           description:
@@ -235,11 +239,13 @@ class _SpriteRow extends StatelessWidget {
     required this.label,
     required this.assetPath,
     required this.description,
+    this.icon,
     this.animate = _Anim.rotate,
     this.colorTint,
   });
 
   final String label;
+  final IconData? icon;
   final String assetPath;
   final String description;
   final _Anim animate;
@@ -256,6 +262,7 @@ class _SpriteRow extends StatelessWidget {
           size: 44,
           animate: animate,
           colorTint: colorTint,
+          icon: icon,
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -284,11 +291,13 @@ class _AnimatedSprite extends StatefulWidget {
     required this.assetPath,
     required this.size,
     required this.animate,
+    this.icon,
     this.colorTint,
   });
   final String assetPath;
   final double size;
   final _Anim animate;
+  final IconData? icon;
   final Color? colorTint;
 
   @override
@@ -349,7 +358,13 @@ class _AnimatedSpriteState extends State<_AnimatedSprite>
           offset: offset,
           child: Transform.rotate(
             angle: angle,
-            child: Transform.scale(scale: scale, child: img),
+            child: Transform.scale(
+              scale: scale,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [img, if (widget.icon != null) Icon(widget.icon)],
+              ),
+            ),
           ),
         );
         return img;
