@@ -145,7 +145,7 @@ class Player extends PositionComponent
   int maxSimultaneousBullets = 3;
   int _activeBullets = 0;
   double _cooldown = 0;
-  final double bulletCooldown = 0.1; // seconds
+  final double bulletCooldown = 0.03; // seconds
 
   // Expose limited interaction for collisions
   void handleShieldImpact(Vector2 outwardNormal) {
@@ -343,10 +343,15 @@ class Player extends PositionComponent
     if (!isAlive) return;
 
     // Throttle using shared cooldown and capacity
-    if (!hasContinuousFire) {
-      if (_activeBullets >= maxSimultaneousBullets) return;
+    // Capacity caps by mode
+    const int tripleCap =
+        18; // allow up to 18 bullets on-screen for triple spread
+    if (hasTripleSpread) {
+      if (_activeBullets >= tripleCap) return;
+    } else if (hasContinuousFire) {
+      if (_activeBullets >= 20) return;
     } else {
-      if (_activeBullets >= 30) return;
+      if (_activeBullets >= maxSimultaneousBullets) return;
     }
     if (_cooldown > 0) return;
 
@@ -359,15 +364,15 @@ class Player extends PositionComponent
     final baseDir = Vector2(0, -1)..rotate(angle);
 
     if (hasTripleSpread) {
-      // Fire 3 bullets with slight spread angles, respecting capacity
-      final double spreadRad = 12 * math.pi / 300;
+      // Fire 3 bullets with narrower spread angles, respecting capacity
+      final double spreadRad = 8 * math.pi / 180; // ~8 degrees
       final dirs = <Vector2>[
         baseDir.clone()..rotate(-spreadRad),
         baseDir.clone(),
         baseDir.clone()..rotate(spreadRad),
       ];
       for (final d in dirs) {
-        if (_activeBullets >= 6) break;
+        if (_activeBullets >= tripleCap) break;
         _spawnBullet(d, offsetAlongNose: 0);
       }
     } else {

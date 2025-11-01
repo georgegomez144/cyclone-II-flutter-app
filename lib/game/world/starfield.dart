@@ -38,6 +38,12 @@ class Starfield extends Component with HasGameRef {
     }
   }
 
+  /// Randomize star positions within the current game size.
+  void randomize() {
+    final size = sizeProvider();
+    _rebuildForSize(size);
+  }
+
   void _rebuildForSize(Vector2 size) {
     _lastSize = size.clone();
     // Remove any existing stars

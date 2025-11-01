@@ -1,5 +1,6 @@
 import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/game/game_manager.dart';
+import 'package:cyclone_game/utils.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
@@ -38,7 +39,7 @@ class _HomeMenuState extends State<HomeMenu> {
   Widget build(BuildContext context) {
     final gm = widget.game.gm;
     return Material(
-      color: Colors.black,
+      color: Colors.transparent,
       child: Center(
         child: SafeArea(
           child: SingleChildScrollView(
@@ -60,8 +61,8 @@ class _HomeMenuState extends State<HomeMenu> {
                       alignment: WrapAlignment.start,
                       runAlignment: WrapAlignment.start,
                       crossAxisAlignment: WrapCrossAlignment.start,
-                      spacing: 24,
-                      runSpacing: 24,
+                      spacing: 80,
+                      runSpacing: 40,
                       children: [
                         _settings(gm),
                         Column(
@@ -298,7 +299,9 @@ class _HomeMenuState extends State<HomeMenu> {
 
   Widget _settings(GameManager gm) {
     return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: 400),
+      constraints: BoxConstraints(
+        maxWidth: isNarrowScreen(context) ? 900 : 300,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -319,7 +322,7 @@ class _HomeMenuState extends State<HomeMenu> {
                   ),
                 ),
                 Text(
-                  (vol * 100).round().toString(),
+                  '${(vol * 100).round()} %',
                   style: const TextStyle(color: Colors.amber),
                 ),
               ],

@@ -157,7 +157,7 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
     final blast = EnemyBlast(
       start: startPos,
       direction: dir,
-      baseSpeed: 360.0, // modest speed to allow dodging early on
+      baseSpeed: 580.0, // faster enemy blast per spec
       growthFactorPerSecond: 1.5,
       initialSize: Size(18, 18),
     );

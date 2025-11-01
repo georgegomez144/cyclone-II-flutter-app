@@ -37,13 +37,37 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
     final dy = _pointerPos!.dy - _joystickCenter!.dy;
     final v = Vector2(dx, dy);
     if (v.length2 == 0) return Vector2.zero();
-    final maxR = 60.0;
-    if (v.length > maxR) {
-      v.scale(maxR / v.length);
+
+    // Joystick radius
+    const maxR = 60.0;
+
+    // Apply radial clamp
+    final len = v.length;
+    if (len > maxR) {
+      v.scale(maxR / len);
     }
-    // Normalize to [-1,1]
-    final norm = Vector2(v.x / maxR, v.y / maxR);
-    return norm;
+
+    // Add a deadzone and a non-linear response curve to reduce sensitivity
+    const deadZone = 14.0; // pixels around center with no movement
+    final r = v.length; // already clamped to [0, maxR]
+    if (r <= deadZone) return Vector2.zero();
+
+    // Normalize r ∈ (deadZone..maxR] → t ∈ (0..1]
+    final tLinear = ((r - deadZone) / (maxR - deadZone)).clamp(0.0, 1.0);
+
+    // Apply a softer curve to reduce sensitivity near center
+    // Using quadratic easing: t' = t^2
+    final t = tLinear * tLinear;
+
+    // Optional overall dampening to make full push slightly less than 1
+    const gain = 0.9; // 90% of full speed at max deflection
+
+    // Direction unit vector
+    final dir = v..scale(1 / (r == 0 ? 1 : r));
+
+    // Scaled movement in [-1, 1]
+    final out = Vector2(dir.x * t * gain, dir.y * t * gain);
+    return out;
   }
 
   void _updatePlayerMove() {
@@ -58,21 +82,37 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
         children: [
           // Joystick bottom-left
           Positioned(left: 16, bottom: 16, child: _buildJoystick()),
-          // Vertical volume slider along right edge, centered vertically
+
+          // Right Side
+          // Vertical volume slider along top left edge, under the HUD
           Align(
-            alignment: Alignment.centerRight,
+            alignment: Alignment.topRight,
             child: Padding(
-              padding: const EdgeInsets.only(right: 24),
+              padding: EdgeInsets.only(
+                right: 12,
+                top: isNarrowScreen(context) ? 180 : 140,
+              ),
               child: _buildVerticalVolume(),
             ),
           ),
+          // SFX Toggle
           Positioned(
             right: 24,
-            top: isPhone ? 120 : 40,
+            bottom: isNarrowScreen(context) ? 120 : 200,
+            child: _buildSfxToggle(),
+          ),
+          // Pause/Resume
+          Positioned(
+            right: 24,
+            bottom: isNarrowScreen(context) ? 180 : 140,
+            child: _buildPauseButton(),
+          ),
+          // Exit Game
+          Positioned(
+            right: 24,
+            top: isNarrowScreen(context) ? 120 : 80,
             child: _buildExitButton(),
           ),
-          Positioned(right: 24, bottom: 200, child: _buildSfxToggle()),
-          Positioned(right: 24, bottom: 140, child: _buildPauseButton()),
           // Controls cluster bottom-right: Pause/Exit above Fire button
           Positioned(right: 24, bottom: 24, child: _buildActionCluster()),
         ],
@@ -136,9 +176,9 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
             elevation: 8,
             shadowColor: Colors.blueGrey.withOpacity(0.3),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(32),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             side: BorderSide(
               color: Colors.blueGrey.shade400.withOpacity(0.5),
               width: 2,
@@ -168,10 +208,11 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
     final gm = widget.game.gm;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      width: 50,
+      margin: EdgeInsets.only(right: 12),
+      width: 55,
       decoration: BoxDecoration(
         color: Colors.white10,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(100),
         border: Border.all(color: Colors.white24, width: 2),
         boxShadow: [
           BoxShadow(
@@ -181,39 +222,47 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.volume_up, color: Colors.amber),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 160,
-            child: RotatedBox(
-              quarterTurns: 3,
-              child: ValueListenableBuilder<double>(
-                valueListenable: gm.volume,
-                builder: (context, vol, _) => Slider(
-                  value: vol,
-                  onChanged: (v) => gm.volume.value = v,
-                  activeColor: Colors.deepOrange,
-                  inactiveColor: Colors.amber.shade200,
-                  thumbColor: Colors.red,
+      child: ValueListenableBuilder<bool>(
+        valueListenable: AudioManager.instance.sfxEnabled,
+        builder: (context, enabled, _) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Icon(
+                enabled ? Icons.volume_up : Icons.volume_off,
+                color: Colors.amber,
+              ),
+              SizedBox(
+                height: 140,
+                child: RotatedBox(
+                  quarterTurns: 3,
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: gm.volume,
+                    builder: (context, vol, _) => Slider(
+                      value: vol,
+                      onChanged: (v) => gm.volume.value = v,
+                      activeColor: Colors.deepOrange,
+                      inactiveColor: Colors.amber.shade200,
+                      thumbColor: Colors.red,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          ValueListenableBuilder<double>(
-            valueListenable: gm.volume,
-            builder: (context, vol, _) => Text(
-              '${(vol * 100).round()}%',
-              style: const TextStyle(
-                color: Colors.amber,
-                fontWeight: FontWeight.bold,
+              ValueListenableBuilder<double>(
+                valueListenable: gm.volume,
+                builder: (context, vol, _) => Text(
+                  '${(vol * 100).round()}%',
+                  style: const TextStyle(
+                    color: Colors.amber,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
+              const SizedBox(height: 8),
+            ],
+          );
+        },
       ),
     );
   }
@@ -226,8 +275,8 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
         foregroundColor: Colors.amber.shade200,
         elevation: 8,
         shadowColor: Colors.amber.withOpacity(0.3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         side: BorderSide(
           color: Colors.amber.shade400.withOpacity(0.5),
           width: 2,
@@ -262,11 +311,11 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
         foregroundColor: Colors.red.shade200,
         elevation: 8,
         shadowColor: Colors.red.withOpacity(0.3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         side: BorderSide(color: Colors.red.shade400.withOpacity(0.5), width: 2),
       ),
-      icon: const Icon(Icons.logout),
+      icon: const Icon(Icons.close),
       label: Text(
         'Exit',
         style: TextStyle(
@@ -374,23 +423,95 @@ class _JoystickPainter extends CustomPainter {
       ..color = Colors.white10
       ..style = PaintingStyle.fill;
 
-    final c = center ?? Offset(size.width / 2, size.height / 2);
-    canvas.drawCircle(c, 60, paintFill);
-    canvas.drawCircle(c, 60, paintBase);
-    canvas.drawCircle(c, 30, paintBase);
+    // Constants shared with logic above
+    const maxR = 60.0;
+    const deadZone = 14.0;
+    const gain = 0.9;
 
+    final c = center ?? Offset(size.width / 2, size.height / 2);
+
+    // Base rings
+    canvas.drawCircle(c, maxR, paintFill);
+    canvas.drawCircle(c, maxR, paintBase);
+    canvas.drawCircle(c, maxR / 2, paintBase);
+
+    // Compute movement vector for arrow lighting
+    Vector2 move = Vector2.zero();
+    Offset? knobPos;
     if (pointer != null) {
       final p = pointer!;
-      final knob = Paint()
-        ..color = Colors.amber
-        ..style = PaintingStyle.fill;
       final dx = (p.dx - c.dx);
       final dy = (p.dy - c.dy);
       final len = math.sqrt(dx * dx + dy * dy);
-      final maxR = 60.0;
-      final kx = c.dx + (len == 0 ? 0 : dx * (math.min(len, maxR) / len));
-      final ky = c.dy + (len == 0 ? 0 : dy * (math.min(len, maxR) / len));
-      canvas.drawCircle(Offset(kx, ky), 18, knob);
+      final clamped = math.min(len, maxR);
+      final dirX = len == 0 ? 0.0 : dx / len;
+      final dirY = len == 0 ? 0.0 : dy / len;
+      final r = clamped;
+      if (r > deadZone) {
+        final tLinear = ((r - deadZone) / (maxR - deadZone)).clamp(0.0, 1.0);
+        final t = tLinear * tLinear; // same easing as logic
+        move = Vector2(dirX * t * gain, dirY * t * gain);
+      }
+      knobPos = Offset(c.dx + dirX * clamped, c.dy + dirY * clamped);
+    }
+
+    // Draw directional arrows (up, right, down, left)
+    void drawArrow(Offset centerPoint, double angleRad, double intensity) {
+      // Base styling
+      final baseColor = Colors.amberAccent;
+      final offColor = Colors.white24;
+      final color = Color.lerp(offColor, baseColor, intensity.clamp(0.0, 1.0))!;
+      final paint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+
+      // Arrow geometry: small isosceles triangle pointing outward
+      const radius = maxR - 10; // place slightly inside ring
+      const halfW = 10.0;
+      const length = 16.0;
+
+      final dir = Offset(math.cos(angleRad), math.sin(angleRad));
+      final ortho = Offset(-dir.dy, dir.dx);
+
+      final tip = centerPoint + dir * (radius + 2);
+      final base = centerPoint + dir * (radius - length);
+      final p1 = base + ortho * halfW;
+      final p2 = base - ortho * halfW;
+
+      final path = Path()
+        ..moveTo(tip.dx, tip.dy)
+        ..lineTo(p1.dx, p1.dy)
+        ..lineTo(p2.dx, p2.dy)
+        ..close();
+      canvas.drawPath(path, paint);
+
+      // Subtle glow when active
+      if (intensity > 0.01) {
+        final glow = Paint()
+          ..color = color.withOpacity(0.35 * intensity)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+        canvas.drawPath(path, glow);
+      }
+    }
+
+    // Compute intensities from move vector components
+    final upI = (-move.y).clamp(0.0, 1.0); // y up is negative
+    final downI = (move.y).clamp(0.0, 1.0);
+    final leftI = (-move.x).clamp(0.0, 1.0);
+    final rightI = (move.x).clamp(0.0, 1.0);
+
+    // Angles: 0 = right, pi/2 = down (screen coords), pi = left, -pi/2 = up
+    drawArrow(c, -math.pi / 2, upI); // up
+    drawArrow(c, 0.0, rightI); // right
+    drawArrow(c, math.pi / 2, downI); // down
+    drawArrow(c, math.pi, leftI); // left
+
+    // Draw knob last (on top)
+    if (knobPos != null) {
+      final knob = Paint()
+        ..color = Colors.orange
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(knobPos, 18, knob);
     }
   }
 

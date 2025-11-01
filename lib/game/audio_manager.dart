@@ -237,6 +237,11 @@ class AudioManager {
     _play(_toAudioKey('you_lose.mp3'), volume: 0.9);
   }
 
+  /// UI SFX for non-gameplay screens. Default quiet.
+  void playUiStart({double volume = 0.15}) {
+    _play(_toAudioKey('begin.mp3'), volume: volume);
+  }
+
   void _play(String file, {double volume = 1.0}) {
     if (!isEnabled) return;
     if (_suppressSfx) return;

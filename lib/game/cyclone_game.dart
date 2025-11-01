@@ -233,6 +233,13 @@ class CycloneGame extends FlameGame
     // Increment level
     gm.currentLevel.value = gm.currentLevel.value + 1;
 
+    // Randomize starfield every 10 levels (10, 20, 30, ...)
+    if (gm.currentLevel.value % 10 == 0) {
+      try {
+        starfield.randomize();
+      } catch (_) {}
+    }
+
     // Save progress to leaderboard on each level increase
     gm.submitHighScore(level: gm.currentLevel.value);
 
@@ -309,6 +316,32 @@ class CycloneGame extends FlameGame
     overlays.remove('controls');
     overlays.remove('instructions');
     overlays.add('home');
+  }
+
+  /// Ensure Home overlay shows only the basic starfield and no audio.
+  void showHomeOverlayClean() {
+    isStartupDemo = false;
+    isPlaying = false;
+    _levelTransitioning = false;
+    _isRespawning = false;
+    // Remove gameplay entities and projectiles
+    _removeAllEnemies();
+    _removeAllProjectiles();
+    if (player.isMounted) {
+      player.removeFromParent();
+    }
+    // Stop any background audio
+    // ignore: discarded_futures
+    AudioManager.instance.stopBackgroundHum();
+    // Pause engine so only overlays remain visually (starfield is static dots)
+    pauseEngine();
+    // Overlays: leave only home
+    overlays.remove('hud');
+    overlays.remove('controls');
+    overlays.remove('instructions');
+    if (!overlays.isActive('home')) {
+      overlays.add('home');
+    }
   }
 
   void returnToHome() {
@@ -655,9 +688,7 @@ class CycloneGame extends FlameGame
       hold: 1.5,
       fadeOut: 0.6,
       onFinished: () {
-        isStartupDemo = false;
-        pauseEngine();
-        overlays.add('home');
+        showHomeOverlayClean();
       },
     );
     await add(logo);

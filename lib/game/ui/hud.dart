@@ -29,7 +29,7 @@ class _HudOverlayState extends State<HudOverlay> {
   Widget build(BuildContext context) {
     // Centered, unobtrusive HUD suitable for tablet/web
     return Align(
-      alignment: Alignment.topCenter,
+      alignment: Alignment.topLeft,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),

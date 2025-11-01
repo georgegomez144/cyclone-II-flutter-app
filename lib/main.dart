@@ -82,8 +82,8 @@ class _CycloneRootAppState extends State<CycloneRootApp> {
                 ControlsOverlay(game: game as CycloneGame),
             'instructions': (context, game) => InstructionsOverlay(
               onClose: () {
-                (game as CycloneGame).overlays.remove('instructions');
-                game.overlays.add('home');
+                final g = game as CycloneGame;
+                g.showHomeOverlayClean();
               },
             ),
           },

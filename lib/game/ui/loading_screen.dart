@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:cyclone_game/game/audio_manager.dart';
 
 /// A silent, short pre-home loading screen that simulates gameplay visuals:
 /// - Enemy at center with rotating shield rings and a gap
@@ -31,6 +32,10 @@ class _LoadingScreenState extends State<LoadingScreen>
             widget.onFinished();
           }
         });
+
+    // Play a subtle UI start SFX at 50% volume
+    AudioManager.instance.playUiStart(volume: 0.5);
+
     // Keep the animation deterministic and non-looping
     _ctl.forward();
   }
