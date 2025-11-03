@@ -172,11 +172,21 @@ class CycloneGame extends FlameGame
     _isRespawning = false;
     isPlaying = true;
 
+    // Reset internal timers for spawns and auto-fire helpers
+    _pickupSpawnTimer = 0;
+    _mineSpawnTimer = 0;
+    _tripleAutoFireTimer = 0;
+
     // Ensure Game Over banner is cleared
     _gameOverBanner?.removeFromParent();
     _gameOverBanner = null;
 
-    // Ensure player is mounted and placed at a safe spawn
+    // Remove any lingering entities and projectiles from prior run
+    _removeAllEnemies();
+    _removeAllProjectiles();
+
+    // Ensure player exists with pristine state and is mounted
+    player.resetForNewGame();
     if (!player.isMounted) {
       add(player);
     }
@@ -188,6 +198,7 @@ class CycloneGame extends FlameGame
     // ignore: discarded_futures
     _spawnEnemy();
 
+    // Overlays: switch to in-game HUD/controls only
     overlays.remove('home');
     overlays.remove('instructions');
     overlays.add('hud');
@@ -198,6 +209,7 @@ class CycloneGame extends FlameGame
     // ignore: discarded_futures
     AudioManager.instance.playBackgroundHum(volume: 0.22);
 
+    // Make sure engine is running
     resumeGame();
   }
 

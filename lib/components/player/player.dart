@@ -28,6 +28,34 @@ class Player extends PositionComponent
   bool hasTripleSpread = false; // fire 3-way spread
   bool oneHitShieldActive = false; // absorbs a single enemy blast
 
+  // Ensure player has a pristine state at the start of each new game
+  void resetForNewGame() {
+    isAlive = true;
+    // Clear all power-ups and visuals
+    hasContinuousFire = false;
+    hasTripleSpread = false;
+    oneHitShieldActive = false;
+    _refreshShieldGlow();
+
+    // Reset input and movement
+    _uiFireHeld = false;
+    _kbFireHeld = false;
+    _velocity = Vector2.zero();
+    _keyMove = Vector2.zero();
+    _joyMove = Vector2.zero();
+    _joyMoveSmoothed = Vector2.zero();
+    _isMoving = false;
+    _turnAxis = 0.0;
+    _thrustHeld = false;
+
+    // Reset shooting state
+    _activeBullets = 0;
+    _cooldown = 0;
+
+    // Reset HUD to Single bullet mode
+    gm.currentBulletMode.value = BulletMode.single;
+  }
+
   // Input hold states
   bool _uiFireHeld = false;
   bool _kbFireHeld = false;

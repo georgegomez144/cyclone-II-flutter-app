@@ -212,8 +212,17 @@ class GameManager {
     lives.value = 3;
     shields.value = 100;
     currentLevel.value = 1;
-    // Reset Lock Yummy effect at the start of a new game
-    keepYummiesOnDeath.value = false;
+
+    // Reset HUD + weapon/power-up model state
+    currentBulletMode.value = BulletMode.single;
+    keepYummiesOnDeath.value = false; // Lock Yummy cleared at new game
+
+    // Fully cancel any active TripleAuto override and its timers
+    tripleAutoActive = false;
+    tripleAutoRemaining.value = 0;
+    prevBulletMode = BulletMode.single;
+    prevHasContinuous = false;
+    prevHasTriple = false;
   }
 
   void submitHighScore({required int level}) {
