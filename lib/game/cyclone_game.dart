@@ -59,6 +59,7 @@ class CycloneGame extends FlameGame
   bool _levelTransitioning = false;
   bool _isRespawning = false;
   TextComponent? _gameOverBanner;
+  bool _submittedThisRun = false;
 
   @override
   void onRemove() {
@@ -158,6 +159,7 @@ class CycloneGame extends FlameGame
   }
 
   void startGame() {
+    _submittedThisRun = false;
     // If a startup demo or any intro overlays are still around, force-clean them
     isStartupDemo = false;
     // Remove any leftover fade or logo components to ensure a clean start
@@ -271,9 +273,6 @@ class CycloneGame extends FlameGame
       } catch (_) {}
     }
 
-    // Save progress to leaderboard on each level increase
-    gm.submitHighScore(level: gm.currentLevel.value);
-
     // After a delay, remove banner and respawn enemy for next level.
     // Keep player at current position (no random respawn after a win).
     add(
@@ -345,6 +344,11 @@ class CycloneGame extends FlameGame
   }
 
   void exitToHome() {
+    // Save high score only when the player explicitly exits mid-run
+    if (isPlaying && !_submittedThisRun) {
+      _submittedThisRun = true;
+      gm.submitHighScore(level: gm.currentLevel.value);
+    }
     showHomeOverlayClean();
   }
 
@@ -457,8 +461,11 @@ class CycloneGame extends FlameGame
         period: 2.0,
         removeOnFinish: true,
         onTick: () {
-          // Submit final score/level/name to leaderboard
-          gm.submitHighScore(level: gm.currentLevel.value);
+          // Submit final score/level/name to leaderboard (only once)
+          if (!_submittedThisRun) {
+            _submittedThisRun = true;
+            gm.submitHighScore(level: gm.currentLevel.value);
+          }
           // Navigate back to home
           exitToHome();
         },
