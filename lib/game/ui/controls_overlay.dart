@@ -88,11 +88,20 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
           // Right Side
           // Vertical volume slider along top left edge, under the HUD
           Align(
-            alignment: Alignment.topRight,
+            alignment: isLandscape(context)
+                ? Alignment.topLeft
+                : Alignment.topRight,
             child: Padding(
               padding: EdgeInsets.only(
-                right: 12,
-                top: isNarrowScreen(context) ? 180 : 140,
+                right: isLandscape(context) ? 0 : 12,
+                left: isLandscape(context) ? 12 : 0,
+                top: isLandscape(context)
+                    ? isNarrowScreen(context)
+                          ? 100
+                          : 80
+                    : isNarrowScreen(context)
+                    ? 180
+                    : 140,
               ),
               child: _buildVerticalVolume(),
             ),

@@ -4,7 +4,10 @@ import 'package:flutter_device_type/flutter_device_type.dart';
 
 bool isTablet = Device.get().isTablet;
 bool isPhone = Device.get().isPhone;
-bool isNarrowScreen(context) => MediaQuery.of(context).size.width < 800;
+bool isNarrowScreen(BuildContext context) =>
+    MediaQuery.of(context).size.width < 800;
+bool isLandscape(BuildContext context) =>
+    MediaQuery.of(context).size.height < 620;
 
 // Platform helpers
 bool get isWeb => kIsWeb;
