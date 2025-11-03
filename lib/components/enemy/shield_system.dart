@@ -8,10 +8,11 @@ import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
 import 'package:cyclone_game/components/hazards/mine.dart';
 import 'package:cyclone_game/components/effects/electric_shield.dart';
 import 'package:cyclone_game/components/enemy/enemy_blast.dart';
+import 'package:cyclone_game/game/cyclone_game.dart';
 
 enum ShieldSegmentState { healthy, weakened, destroyed }
 
-class EnemyShield extends PositionComponent {
+class EnemyShield extends PositionComponent with HasGameRef<CycloneGame> {
   EnemyShield({
     required this.yellowRadius,
     required this.orangeRadius,
@@ -101,9 +102,16 @@ class EnemyShield extends PositionComponent {
     if (parentComp is PositionComponent) {
       angle = -parentComp.angle;
     }
-    yellowRing.updateSpin(dt);
-    orangeRing.updateSpin(dt);
-    redRing.updateSpin(dt);
+    // Slightly speed up rotation every 10 levels
+    double mul = 1.0;
+    if (isMounted) {
+      final lvl = gameRef.gm.currentLevel.value;
+      final steps = ((lvl - 1) ~/ 10).clamp(0, 1000);
+      mul = (1.0 + 0.05 * steps).clamp(1.0, 1.8); // up to +80%
+    }
+    yellowRing.updateSpin(dt * mul);
+    orangeRing.updateSpin(dt * mul);
+    redRing.updateSpin(dt * mul);
   }
 
   bool canFireTowardGlobal(Vector2 enemyCenter, Vector2 targetWorld) {

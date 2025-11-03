@@ -4,6 +4,8 @@ import 'package:cyclone_game/components/enemy/enemy_sprite.dart';
 import 'package:cyclone_game/components/enemy/enemy_core.dart';
 import 'package:cyclone_game/components/enemy/enemy_blast.dart';
 import 'package:cyclone_game/components/enemy/enemy_main_shot.dart';
+import 'package:cyclone_game/components/effects/explosion.dart';
+import 'package:cyclone_game/components/effects/electric_shield.dart';
 import 'package:cyclone_game/components/player/player.dart';
 import 'package:cyclone_game/components/player/player_bullet.dart';
 import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
@@ -75,6 +77,8 @@ class CycloneGame extends FlameGame
   double _mineSpawnTimer = 0;
   // Auto-fire timer for TripleAutoYummy to ensure hands-free firing
   double _tripleAutoFireTimer = 0;
+  // Bonus countdown half-second accumulator
+  double _bonusTickAccum = 0;
 
   @override
   Color backgroundColor() => const Color(0xFF000000);
@@ -98,6 +102,16 @@ class CycloneGame extends FlameGame
     // Timed spawns for pickups and mines while playing
     _pickupSpawnTimer += dt;
     _mineSpawnTimer += dt;
+
+    // Bonus countdown: every 0.5s, decrease by 5 until 0
+    _bonusTickAccum += dt;
+    if (_bonusTickAccum >= 0.5) {
+      _bonusTickAccum -= 0.5;
+      final cur = gm.levelBonus.value;
+      if (cur > 0) {
+        gm.levelBonus.value = (cur - 5).clamp(0, 5000);
+      }
+    }
 
     // Spawn yummy pickups every 8–14 seconds randomly
     final pickupInterval = 10.0; // base
@@ -168,6 +182,9 @@ class CycloneGame extends FlameGame
 
     // Fresh game state
     gm.resetForNewGame();
+    // Reset per-level bonus countdown
+    gm.levelBonus.value = 5000;
+    _bonusTickAccum = 0;
     _levelTransitioning = false;
     _isRespawning = false;
     isPlaying = true;
@@ -230,16 +247,86 @@ class CycloneGame extends FlameGame
     if (_levelTransitioning) return;
     _levelTransitioning = true;
 
-    // Award points for destroying enemy
-    gm.addScore(100);
-
-    // Remove current enemy safely if present
+    // Remove current enemy safely if present, with SFX and explosion
     if (enemy != null && enemy!.isMounted) {
-      // SFX: enemy destroyed
       AudioManager.instance.playEnemyExplode();
+      // Visual boom at center
+      final boom = Explosion(maxRadius: 64, duration: 0.6)
+        ..position = (enemy!.position.clone());
+      add(boom);
       enemy!.removeFromParent();
     }
     enemy = null;
+
+    await _completeVictoryAndAdvance();
+  }
+
+  Future<void> flareVictoryExplosionThenWin() async {
+    if (isStartupDemo) return;
+    if (_levelTransitioning) return;
+    _levelTransitioning = true;
+
+    // 1) Mines explode
+    final mines = children.whereType<SparkMine>().toList(growable: false);
+    for (final m in mines) {
+      final ex = Explosion(maxRadius: 26, duration: 0.35)
+        ..position = m.position.clone();
+      add(ex);
+      AudioManager.instance.playMineExplode();
+      m.removeFromParent();
+    }
+
+    // 2) Enemy rings electric flash + ship explosion
+    final e = enemy;
+    if (e != null && e.isMounted) {
+      // Approximate shield radii as in EnemySprite
+      final double rYellow = e.size.x * (isPhone ? 1 : 1.3);
+      final double rOrange = rYellow * 1.35;
+      final double rRed = rOrange * 1.25;
+      for (final r in [rRed, rOrange, rYellow]) {
+        final fx = ElectricShield(radius: r, arcCount: 5)
+          ..position = e.position.clone()
+          ..priority = 999;
+        add(fx);
+        add(
+          TimerComponent(
+            period: 0.5,
+            removeOnFinish: true,
+            onTick: () {
+              fx.removeFromParent();
+            },
+          ),
+        );
+      }
+      AudioManager.instance.playEnemyExplode();
+      final boom = Explosion(maxRadius: 72, duration: 0.7)
+        ..position = e.position.clone();
+      add(boom);
+      e.removeFromParent();
+      enemy = null;
+    }
+
+    // 3) Small delay before banner
+    add(
+      TimerComponent(
+        period: 1.0,
+        removeOnFinish: true,
+        onTick: () async {
+          await _completeVictoryAndAdvance();
+        },
+      ),
+    );
+  }
+
+  Future<void> _completeVictoryAndAdvance() async {
+    // Award base points for destroying enemy
+    gm.addScore(100);
+    // Award remaining time bonus
+    final rem = gm.levelBonus.value;
+    if (rem > 0) {
+      gm.addScore(rem);
+      gm.levelBonus.value = 0;
+    }
 
     // Show centered 'You Won!' banner briefly
     final center = size / 2;
@@ -286,7 +373,6 @@ class CycloneGame extends FlameGame
     }
 
     // After a delay, remove banner and respawn enemy for next level.
-    // Keep player at current position (no random respawn after a win).
     add(
       TimerComponent(
         period: 1.5,
@@ -295,6 +381,9 @@ class CycloneGame extends FlameGame
           banner.removeFromParent();
           summary.removeFromParent();
           await _spawnEnemy();
+          // Reset next level's bonus countdown and accumulator
+          gm.levelBonus.value = 5000;
+          _bonusTickAccum = 0;
           _levelTransitioning = false;
         },
       ),
@@ -545,17 +634,21 @@ class CycloneGame extends FlameGame
       () => LifeYummy(),
       () => TripleSpreadYummy(),
     ];
-    // AutoYummy (ContinuousFire) after level > 5
-    if (level > 5) {
+    // AutoYummy (ContinuousFire) after level > 19
+    if (level > 19) {
       allowed.add(() => ContinuousFireYummy());
     }
-    // LockYummy after level > 12
-    if (level > 12) {
+    // LockYummy after level > 9
+    if (level > 9) {
       allowed.add(() => LockYummy());
     }
-    // TripleAutoYummy after level > 20
-    if (level > 20) {
+    // TripleAutoYummy after level > 19
+    if (level > 19) {
       allowed.add(() => TripleAutoYummy());
+    }
+    // FlareYummy after level > 14
+    if (level > 14) {
+      allowed.add(() => FlareYummy());
     }
 
     if (allowed.isEmpty) return;
@@ -573,9 +666,14 @@ class CycloneGame extends FlameGame
   }
 
   void _maybeSpawnMine() {
-    // Cap increases every 10 levels up to 5
+    // Cap increases every 10 levels up to 5, then increases a bit faster after level 40
     final level = gm.currentLevel.value;
-    final cap = math.min(1 + ((level - 1) ~/ 10), 5);
+    final baseCap = math.min(1 + ((level - 1) ~/ 10), 5);
+    int extra = 0;
+    if (level > 40) {
+      extra = ((level - 40) ~/ 5); // +1 every 5 levels after 40
+    }
+    final cap = math.min(baseCap + extra, 10); // soft cap at 10 mines
     final current = children.whereType<SparkMine>().length;
     if (current >= cap) return;
 

@@ -97,6 +97,31 @@ class _HudOverlayState extends State<HudOverlay> {
                           ),
                         ),
                       ),
+                      // Bonus countdown
+                      ValueListenableBuilder<int>(
+                        valueListenable: widget.game.gm.levelBonus,
+                        builder: (_, value, __) => _pill(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.military_tech,
+                                color: Colors.amber,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Bonus: $value',
+                                style: const TextStyle(
+                                  color: Colors.amber,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       // Lives
                       ValueListenableBuilder<int>(
                         valueListenable: widget.game.gm.lives,
@@ -111,7 +136,7 @@ class _HudOverlayState extends State<HudOverlay> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'Lives: $value',
+                                'Ships: $value',
                                 style: const TextStyle(
                                   color: Colors.amber,
                                   fontWeight: FontWeight.w600,

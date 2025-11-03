@@ -33,6 +33,8 @@ class HighScoreEntry {
 enum BulletMode { single, auto, triple }
 
 class GameManager {
+  // Per-level time bonus countdown
+  final levelBonus = ValueNotifier<int>(5000);
   // Gameplay state
   final score = ValueNotifier<int>(0);
   final lives = ValueNotifier<int>(3);

@@ -7,6 +7,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:cyclone_game/game/audio_manager.dart';
+import 'package:cyclone_game/components/hazards/mine.dart';
 
 /// Base pickup component rendered with the `assets/yummy_sprite.png` sprite.
 /// Provides a small floating + flipping animation and handles collision
@@ -213,7 +214,7 @@ class LifeYummy extends YummyPickup {
       applyEffect(gameRef.gm);
       // Custom floating text
       final comp = TextComponent(
-        text: '+1 Life',
+        text: '+1 Ship',
         anchor: Anchor.center,
         position: position.clone(),
         priority: 2000,
@@ -329,7 +330,7 @@ class TripleAutoYummy extends YummyPickup {
     await super.onLoad();
     add(
       TextComponent(
-        text: '3x∞',
+        text: '3x ∞',
         anchor: Anchor.center,
         position: Vector2(size.x / 2, size.y / 2),
         priority: 10,
@@ -345,7 +346,7 @@ class TripleAutoYummy extends YummyPickup {
   }
 
   @override
-  String floatingText() => 'Triple Auto 60s';
+  String floatingText() => '3x Auto 60s';
 
   @override
   void applyEffect(GameManager gm) {
@@ -401,5 +402,50 @@ class LockYummy extends YummyPickup {
   @override
   void applyEffect(GameManager gm) {
     gm.keepYummiesOnDeath.value = true;
+  }
+}
+
+/// Flare Yummy: instant nova that destroys the current enemy, all mines,
+/// and clears the shield rings. Only spawns after level 15.
+class FlareYummy extends YummyPickup {
+  FlareYummy() : super(colorTint: Colors.deepOrangeAccent.withOpacity(0.95));
+
+  @override
+  Future<void> onLoad() async {
+    super.onLoad();
+    // Centered Material icon glyph for flare
+    final iconChar = String.fromCharCode(Icons.flare.codePoint);
+    add(
+      TextComponent(
+        text: iconChar,
+        anchor: Anchor.center,
+        position: Vector2(size.x / 2, size.y / 2),
+        priority: 10,
+        textRenderer: TextPaint(
+          style: TextStyle(
+            fontFamily: Icons.flare.fontFamily,
+            package: Icons.flare.fontPackage,
+            fontSize: 30,
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                color: Colors.orangeAccent,
+                blurRadius: 8,
+                offset: Offset(0, 0),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  String floatingText() => 'Super Nova';
+
+  @override
+  void applyEffect(GameManager gm) {
+    // Trigger a cinematic explosion sequence (mines, rings, enemy) then win
+    gameRef.flareVictoryExplosionThenWin();
   }
 }
