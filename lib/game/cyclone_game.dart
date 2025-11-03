@@ -331,8 +331,9 @@ class CycloneGame extends FlameGame
     if (isPaused) return;
     isPaused = true;
     pauseEngine();
+    // Fully stop background audio to ensure silence while paused
     // ignore: discarded_futures
-    AudioManager.instance.pauseBackgroundHum();
+    AudioManager.instance.stopBackgroundHum();
   }
 
   void resumeGame() {

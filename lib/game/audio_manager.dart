@@ -1,6 +1,7 @@
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:just_audio/just_audio.dart' as ja;
 
 import 'package:cyclone_game/generated/assets.dart';
 
@@ -10,6 +11,9 @@ import 'package:cyclone_game/generated/assets.dart';
 class AudioManager {
   AudioManager._internal();
   static final AudioManager instance = AudioManager._internal();
+
+  // Dedicated player for rapid-fire player shot to avoid overlapping glitches
+  ja.AudioPlayer? _shotPlayer;
 
   // Transient suppression used for silent scripted scenes (e.g., startup demo)
   bool _suppressSfx = false;
@@ -80,6 +84,19 @@ class AudioManager {
       FlameAudio.bgm.initialize();
     } catch (_) {}
 
+    // Initialize dedicated player for rapid-fire player shots
+    try {
+      _shotPlayer = ja.AudioPlayer();
+      // Preload the shot buffer for minimal latency
+      await _shotPlayer!.setAsset(Assets.audioPlayerShot);
+      await _shotPlayer!.setLoopMode(ja.LoopMode.off);
+      await _shotPlayer!.setVolume((0.7 * _masterVolume).clamp(0.0, 1.0));
+    } catch (e) {
+      // ignore: avoid_print
+      if (kDebugMode) print('Shot player init failed: $e');
+      _shotPlayer = null; // fall back to FlameAudio for shots
+    }
+
     // Pre-cache commonly used audio files (pass keys without the default prefix)
     final keys = <String>[
       _toAudioKey('background_hum.mp3'),
@@ -117,7 +134,7 @@ class AudioManager {
       await prefs.setBool(_prefsKeySfxEnabled, enabled);
     } catch (_) {}
 
-    // Reflect on BGM
+    // Reflect on BGM and any dedicated players
     if (enabled) {
       // If BGM was supposed to be playing, resume will be handled by caller.
       // Do nothing here.
@@ -125,6 +142,9 @@ class AudioManager {
       // Stop any active BGM and SFX loops
       await FlameAudio.bgm.stop();
       _bgmActive = false;
+      try {
+        await _shotPlayer?.stop();
+      } catch (_) {}
     }
   }
 
@@ -157,6 +177,9 @@ class AudioManager {
 
   Future<void> pauseBackgroundHum() async {
     await FlameAudio.bgm.pause();
+    // Mark inactive so volume updates or other operations don't accidentally
+    // re-start playback while the game is paused.
+    _bgmActive = false;
   }
 
   Future<void> resumeBackgroundHum() async {
@@ -193,6 +216,13 @@ class AudioManager {
   void updateMasterVolume(double v) {
     setMasterVolume(v);
     applyBgmVolume();
+    // Reflect on shot player as well
+    final sp = _shotPlayer;
+    if (sp != null) {
+      try {
+        sp.setVolume((0.7 * _masterVolume).clamp(0.0, 1.0));
+      } catch (_) {}
+    }
   }
 
   // --- SFX helpers ----------------------------------------------------------
@@ -209,7 +239,7 @@ class AudioManager {
   }
 
   void playPlayerShot() {
-    _play(_toAudioKey('player_shot.mp3'), volume: 0.7);
+    _playShotExclusive(volume: 0.7);
   }
 
   void playPlayerExplode() {
@@ -262,5 +292,31 @@ class AudioManager {
         print('SFX play failed for "$file": $e');
       }
     }
+  }
+
+  // Exclusive short SFX play for rapid-fire player shots: stops previous
+  // playback and restarts from the beginning to avoid glitchy overlaps.
+  Future<void> _playShotExclusive({double volume = 1.0}) async {
+    if (!isEnabled) return;
+    if (_suppressSfx) return;
+
+    final sp = _shotPlayer;
+    if (sp != null) {
+      try {
+        await sp.stop();
+        await sp.seek(Duration.zero);
+        await sp.setVolume((volume * _masterVolume).clamp(0.0, 1.0));
+        await sp.play();
+        return;
+      } catch (e) {
+        if (kDebugMode) {
+          // ignore: avoid_print
+          print('Shot exclusive play failed, falling back to FlameAudio: $e');
+        }
+      }
+    }
+
+    // Fallback: regular FlameAudio single-shot
+    _play(_toAudioKey('player_shot.mp3'), volume: volume);
   }
 }

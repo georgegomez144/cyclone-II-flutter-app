@@ -45,13 +45,120 @@ class InstructionsOverlay extends StatelessWidget {
                     _Section(
                       title: 'Controls',
                       children: [
-                        if (isMacOrWeb)
+                        if (isMacOrWeb) ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              KeyboardControlsButton(
+                                icon: Text(
+                                  'Q',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Exit to Home',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.amber,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              KeyboardControlsButton(
+                                icon: Text(
+                                  'P',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Pause / Resume',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.amber,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              KeyboardControlsButton(
+                                icon: Text(
+                                  'F',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Fire Bullets',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.amber,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              KeyboardControlsButton(
+                                icon: Icon(Icons.keyboard_arrow_up),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Arrow Up = Boost (thrust forward)',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.amber,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Row(
+                                spacing: 8,
+                                children: [
+                                  KeyboardControlsButton(
+                                    icon: Icon(Icons.keyboard_arrow_left),
+                                  ),
+                                  KeyboardControlsButton(
+                                    icon: Icon(Icons.keyboard_arrow_right),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Left / Right Arrows = Turn the ship',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.amber,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
                           const Text(
-                            'macOS / Web:\n• Q = Exit to Home\n• P = Pause / Resume\n• F = Fire\n• Arrow Up = Boost (thrust forward)\n• Left / Right Arrows = Turn the ship\n\nBullets fire from the ship\'s nose. Turn to line up shots through gaps.',
+                            'Bullets fire from the ship\'s nose. Turn to line up shots through gaps.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.amber, height: 1.5),
-                          )
-                        else
+                          ),
+                        ] else
                           const Text(
                             'Mobile / Touch:\n• Move: on-screen joystick (bottom-left)\n• Fire: big red FIRE button (bottom-right)\n\nBullets fire from the ship\'s nose. Aim your ship to shoot through gaps.',
                             textAlign: TextAlign.center,
@@ -189,17 +296,38 @@ class InstructionsOverlay extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: onClose,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFC62828), Colors.orange],
+                        ),
+                        border: Border.all(width: 3, color: Colors.red),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: ElevatedButton(
+                        onPressed: onClose,
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.black,
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                        ),
+                        child: const Text(
+                          'Back to Home',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                      child: const Text('Back to Home'),
                     ),
                   ],
                 ),
@@ -208,6 +336,31 @@ class InstructionsOverlay extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class KeyboardControlsButton extends StatelessWidget {
+  const KeyboardControlsButton({super.key, required this.icon});
+
+  final Widget icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      width: 40,
+      decoration: BoxDecoration(
+        color: Colors.red,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFC62828), Colors.orange],
+        ),
+        border: Border.all(width: 3, color: Colors.red),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Center(child: icon),
     );
   }
 }

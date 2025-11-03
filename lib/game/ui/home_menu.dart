@@ -300,7 +300,7 @@ class _HomeMenuState extends State<HomeMenu> {
   Widget _settings(GameManager gm) {
     return ConstrainedBox(
       constraints: BoxConstraints(
-        maxWidth: isNarrowScreen(context) ? 900 : 300,
+        maxWidth: isNarrowScreen(context) ? 900 : 360,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
