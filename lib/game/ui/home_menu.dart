@@ -339,6 +339,7 @@ class _HomeMenuState extends State<HomeMenu> {
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 8,
+                  runSpacing: 8,
                   children: [
                     for (final option in Difficulty.values)
                       Container(

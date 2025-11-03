@@ -15,8 +15,8 @@ class Star extends PositionComponent {
 }
 
 class Starfield extends Component with HasGameRef {
-  Starfield({required this.sizeProvider, this.count = 140});
-  final int count;
+  Starfield({required this.sizeProvider, int? count}) : _explicitCount = count;
+  final int? _explicitCount;
   final Vector2 Function() sizeProvider;
   final math.Random _rng = math.Random();
   Vector2? _lastSize;
@@ -25,6 +25,14 @@ class Starfield extends Component with HasGameRef {
   Future<void> onLoad() async {
     await super.onLoad();
     _rebuildForSize(sizeProvider());
+  }
+
+  int _computeCount(Vector2 size) {
+    if (_explicitCount != null) return _explicitCount!;
+    // Adaptive density based on screen area; keep uncluttered
+    final area = size.x * size.y;
+    final target = (area * 0.00003).clamp(60, 120).toInt();
+    return target;
   }
 
   @override
@@ -52,6 +60,7 @@ class Starfield extends Component with HasGameRef {
       removeAll(existing);
     }
     // Spawn stars within the new bounds
+    final count = _computeCount(size);
     for (int i = 0; i < count; i++) {
       final pos = Vector2(
         _rng.nextDouble() * size.x,

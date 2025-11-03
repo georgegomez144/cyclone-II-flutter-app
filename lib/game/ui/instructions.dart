@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:cyclone_game/utils.dart';
 
 class InstructionsOverlay extends StatelessWidget {
   const InstructionsOverlay({super.key, required this.onClose});
@@ -41,14 +42,21 @@ class InstructionsOverlay extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const _Section(
+                    _Section(
                       title: 'Controls',
                       children: [
-                        Text(
-                          '• Move: on-screen joystick (bottom-left)\n• Fire: big red FIRE button (bottom-right)\n• Bullets fire from the ship\'s nose. Aim your ship to shoot through gaps.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.amber, height: 1.5),
-                        ),
+                        if (isMacOrWeb)
+                          const Text(
+                            'macOS / Web:\n• Q = Exit to Home\n• P = Pause / Resume\n• F = Fire\n• Arrow Up = Boost (thrust forward)\n• Left / Right Arrows = Turn the ship\n\nBullets fire from the ship\'s nose. Turn to line up shots through gaps.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.amber, height: 1.5),
+                          )
+                        else
+                          const Text(
+                            'Mobile / Touch:\n• Move: on-screen joystick (bottom-left)\n• Fire: big red FIRE button (bottom-right)\n\nBullets fire from the ship\'s nose. Aim your ship to shoot through gaps.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.amber, height: 1.5),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 16),

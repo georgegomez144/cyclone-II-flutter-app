@@ -95,6 +95,10 @@ class Player extends PositionComponent
   Vector2 _joyMove = Vector2.zero();
   Vector2 _joyMoveSmoothed = Vector2.zero();
   bool _isMoving = false;
+  // macOS/web: rotation+thrust inputs
+  double _turnAxis = 0.0; // -1 left, +1 right
+  bool _thrustHeld = false; // ArrowUp
+  final double turnSpeed = 3.2; // rad/sec
   // If Lock Yummy was active at death, clear the lock after the next revive
   bool _clearKeepYummiesAfterRevive = false;
 
@@ -136,6 +140,18 @@ class Player extends PositionComponent
     final Vector2 joy = _joyMoveSmoothed.clone();
     final double dz2 = joystickDeadZone * joystickDeadZone;
     if (joy.length2 < dz2) joy.setZero();
+
+    // On macOS/web, use rotation + thrust scheme
+    if (isMacOrWeb) {
+      if (_thrustHeld) {
+        // Thrust in current facing direction (ship faces up in local space)
+        final dir = Vector2(0, -1)..rotate(angle);
+        return dir;
+      } else {
+        return Vector2.zero();
+      }
+    }
+
     final v = _keyMove + joy;
     if (v.length2 > 1) return v.normalized();
     return v;
@@ -237,13 +253,19 @@ class Player extends PositionComponent
     // Integrate position
     position += _velocity * dt;
 
-    // Rotate ship to face current movement (velocity) if significant; otherwise face input for responsiveness
-    if (_velocity.length2 > 1e-2) {
-      final v = _velocity;
-      angle = math.atan2(v.y, v.x) + math.pi / 2;
-    } else if (input.length2 > 0) {
-      final dir = input.normalized();
-      angle = math.atan2(dir.y, dir.x) + math.pi / 2;
+    // Orientation
+    if (isMacOrWeb) {
+      // macOS/web: manual rotation via Left/Right keys
+      angle += _turnAxis * turnSpeed * dt;
+    } else {
+      // Default: face movement/ input
+      if (_velocity.length2 > 1e-2) {
+        final v = _velocity;
+        angle = math.atan2(v.y, v.x) + math.pi / 2;
+      } else if (input.length2 > 0) {
+        final dir = input.normalized();
+        angle = math.atan2(dir.y, dir.x) + math.pi / 2;
+      }
     }
 
     // Continuous fire works only while the fire control is held AND the upgrade is active.
@@ -296,7 +318,26 @@ class Player extends PositionComponent
 
   @override
   bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    // Movement via arrows or WASD
+    if (isMacOrWeb) {
+      // macOS/web: rotation (Left/Right) + thrust (Up). F shoots.
+      final left = keysPressed.contains(LogicalKeyboardKey.arrowLeft);
+      final right = keysPressed.contains(LogicalKeyboardKey.arrowRight);
+      _turnAxis = 0;
+      if (left) _turnAxis -= 1;
+      if (right) _turnAxis += 1;
+      _thrustHeld = keysPressed.contains(LogicalKeyboardKey.arrowUp);
+
+      // Fire key = F only
+      final fire = keysPressed.contains(LogicalKeyboardKey.keyF);
+      _kbFireHeld = fire;
+      if (event is KeyDownEvent && fire) {
+        // Respect triple spread one-shot vs continuous via cooldown
+        tryFire();
+      }
+      return true;
+    }
+
+    // Default (mobile/others): WASD/Arrows for direct movement, Space/Ctrl fire
     final left =
         keysPressed.contains(LogicalKeyboardKey.arrowLeft) ||
         keysPressed.contains(LogicalKeyboardKey.keyA);
@@ -323,12 +364,8 @@ class Player extends PositionComponent
         keysPressed.contains(LogicalKeyboardKey.controlLeft) ||
         keysPressed.contains(LogicalKeyboardKey.controlRight);
 
-    // Track hold state for continuous-fire powerup
     _kbFireHeld = fire;
 
-    // Keyboard firing rules:
-    // - If ContinuousFire is not active and TripleSpread is NOT active, allow hold to attempt firing (cooldown throttles via update())
-    // - If TripleSpread is active, only fire on key DOWN (no hold-based continuous)
     if (fire && !hasContinuousFire && !hasTripleSpread) {
       tryFire();
     } else if (fire && hasTripleSpread && event is KeyDownEvent) {

@@ -76,12 +76,14 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final macWeb = isMacOrWeb;
     return IgnorePointer(
       ignoring: false,
       child: Stack(
         children: [
-          // Joystick bottom-left
-          Positioned(left: 16, bottom: 16, child: _buildJoystick()),
+          // Joystick bottom-left (hidden on macOS/web)
+          if (!macWeb)
+            Positioned(left: 16, bottom: 16, child: _buildJoystick()),
 
           // Right Side
           // Vertical volume slider along top left edge, under the HUD
@@ -113,18 +115,18 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
             top: isNarrowScreen(context) ? 120 : 80,
             child: _buildExitButton(),
           ),
-          // Controls cluster bottom-right: Pause/Exit above Fire button
-          Positioned(right: 24, bottom: 24, child: _buildActionCluster()),
+          // Controls cluster bottom-right: Fire button hidden on macOS/web
+          Positioned(right: 24, bottom: 24, child: _buildActionCluster(macWeb)),
         ],
       ),
     );
   }
 
-  Widget _buildActionCluster() {
+  Widget _buildActionCluster(bool macWeb) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
-      children: [_buildFireButton()],
+      children: [if (!macWeb) _buildFireButton()],
     );
   }
 

@@ -15,7 +15,35 @@ import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame/flame.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cyclone_game/game/audio_manager.dart';
+import 'package:cyclone_game/utils.dart';
+
+// Global keyboard handler component for macOS/Web that handles
+// Q (exit to home) and P (pause/resume). Keeps keyboard logic out of the Game
+// to avoid Flame's KeyboardEvents vs HasKeyboardHandlerComponents conflict.
+class _GlobalKeyHandler extends Component
+    with KeyboardHandler, HasGameRef<CycloneGame> {
+  @override
+  bool onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
+    if (!isMacOrWeb) return false;
+    if (event is KeyDownEvent) {
+      if (keysPressed.contains(LogicalKeyboardKey.keyQ)) {
+        gameRef.exitToHome();
+        return true;
+      }
+      if (keysPressed.contains(LogicalKeyboardKey.keyP)) {
+        if (gameRef.isPaused) {
+          gameRef.resumeGame();
+        } else {
+          gameRef.pauseGame();
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+}
 
 /// CycloneGame: root game per blueprint
 class CycloneGame extends FlameGame
@@ -119,6 +147,9 @@ class CycloneGame extends FlameGame
 
     // Layering: background starfield; gameplay entities are added when a new game starts
     await add(starfield);
+
+    // Global keyboard handler for macOS/Web (Q exit, P pause/resume)
+    await add(_GlobalKeyHandler());
 
     // Immediately run the silent startup demo, then show Home
     resumeEngine();
@@ -294,28 +325,26 @@ class CycloneGame extends FlameGame
     return corners.first;
   }
 
+  bool isPaused = false;
+
   void pauseGame() {
+    if (isPaused) return;
+    isPaused = true;
     pauseEngine();
     // ignore: discarded_futures
     AudioManager.instance.pauseBackgroundHum();
   }
 
   void resumeGame() {
+    if (!isPaused) return;
+    isPaused = false;
     resumeEngine();
     // ignore: discarded_futures
     AudioManager.instance.resumeBackgroundHum();
   }
 
   void exitToHome() {
-    // Reset gameplay so next start is fresh from level 1
-    resetGameState();
-    // ignore: discarded_futures
-    AudioManager.instance.stopBackgroundHum();
-    pauseEngine();
-    overlays.remove('hud');
-    overlays.remove('controls');
-    overlays.remove('instructions');
-    overlays.add('home');
+    showHomeOverlayClean();
   }
 
   /// Ensure Home overlay shows only the basic starfield and no audio.
@@ -333,7 +362,8 @@ class CycloneGame extends FlameGame
     // Stop any background audio
     // ignore: discarded_futures
     AudioManager.instance.stopBackgroundHum();
-    // Pause engine so only overlays remain visually (starfield is static dots)
+    // Mark paused and pause engine so only overlays remain visually (starfield is static dots)
+    isPaused = true;
     pauseEngine();
     // Overlays: leave only home
     overlays.remove('hud');
