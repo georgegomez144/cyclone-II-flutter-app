@@ -309,7 +309,7 @@ class CycloneGame extends FlameGame
     // 3) Small delay before banner
     add(
       TimerComponent(
-        period: 1.0,
+        period: 3.0,
         removeOnFinish: true,
         onTick: () async {
           await _completeVictoryAndAdvance();
@@ -344,9 +344,9 @@ class CycloneGame extends FlameGame
       ),
     );
 
-    // Show quick summary: total points and lives remaining
+    // Show quick summary: total points and ships remaining
     final summary = TextComponent(
-      text: 'Score: ${gm.score.value}   Lives: ${gm.lives.value}',
+      text: 'Score: ${gm.score.value}   Ships: ${gm.lives.value}',
       anchor: Anchor.topCenter,
       position: Vector2(center.x, center.y + 36),
       priority: 1000,
@@ -375,7 +375,7 @@ class CycloneGame extends FlameGame
     // After a delay, remove banner and respawn enemy for next level.
     add(
       TimerComponent(
-        period: 1.5,
+        period: 3.0,
         removeOnFinish: true,
         onTick: () async {
           banner.removeFromParent();

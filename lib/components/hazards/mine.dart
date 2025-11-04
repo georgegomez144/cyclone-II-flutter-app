@@ -78,14 +78,34 @@ class SparkMine extends SpriteComponent
 
     // Difficulty multipliers
     final diff = gameRef.gm.difficulty.value;
+    final int level = gameRef.gm.currentLevel.value;
     final double mul = switch (diff) {
       Difficulty.boring => 0.7,
       Difficulty.challenging => 1.0,
       Difficulty.frustrating => 1.5,
     };
-    final double dMaxSpeed = maxSpeed * mul;
-    final double dAccel = accel * mul;
-    final double dOrbit = orbitSpeed * mul;
+    // Level-based scaling: faster tracking each level in frustrating, slight in challenging,
+    // slower in boring (the opposite).
+    double levelMul;
+    switch (diff) {
+      case Difficulty.boring:
+        levelMul = math
+            .pow(0.97, (level - 1).clamp(0, 999))
+            .toDouble(); // down to ~0.6 cap
+        levelMul = levelMul.clamp(0.6, 1.0);
+        break;
+      case Difficulty.challenging:
+        levelMul = math.pow(1.02, (level - 1).clamp(0, 999)).toDouble();
+        levelMul = levelMul.clamp(1.0, 1.6);
+        break;
+      case Difficulty.frustrating:
+        levelMul = math.pow(1.05, (level - 1).clamp(0, 999)).toDouble();
+        levelMul = levelMul.clamp(1.0, 2.0);
+        break;
+    }
+    final double dMaxSpeed = maxSpeed * mul * levelMul;
+    final double dAccel = accel * mul * levelMul;
+    final double dOrbit = orbitSpeed * mul * levelMul;
 
     // If enemy exists and we are near any of its shield rings, orbit around
     final enemy = gameRef.enemy;

@@ -24,9 +24,8 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
   final double _baseTurnRate = 0.8; // rad/sec at level 1 (pretty slow)
   final double _turnRatePerLevel = 0.02; // small increase per level
 
-  // Firing control
-  double _cooldown = 0.0;
-  final double fireCooldown = 0.7; // seconds between shots when openings appear
+  // Firing control: fire immediately on opening availability (no cooldown)
+  bool _openingLatched = false; // ensures single shot per continuous opening
 
   VoidCallback? _levelListener;
 
@@ -101,18 +100,22 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
       }
     }
 
-    // FIRING: only from the front arc and when an opening across all rings aligns
-    if (_cooldown > 0) {
-      _cooldown -= dt;
-    }
-    if (_cooldown <= 0 && player.isMounted) {
-      final throughOpening =
-          _shield?.canFireTowardGlobal(position, player.position) ?? false;
-      final inFront = _isInFrontCone(player.position);
-      if (throughOpening && inFront) {
-        _fireAtPlayer();
-        _cooldown = fireCooldown;
+    // FIRING: immediate on aligned gap across all rings; never hit rings
+    if (player.isMounted && _shield != null) {
+      final safeAngle = _shield!.safeFireAngleTowardGlobal(
+        position,
+        player.position,
+      );
+      if (safeAngle != null) {
+        if (!_openingLatched) {
+          _fireAlongAngle(safeAngle);
+          _openingLatched = true; // latch until opening closes again
+        }
+      } else {
+        _openingLatched = false; // reset latch when opening disappears
       }
+    } else {
+      _openingLatched = false;
     }
   }
 
@@ -133,31 +136,43 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
     return theta <= halfAngle;
   }
 
-  void _fireAtPlayer() {
-    final player = gameRef.player;
-    if (!player.isMounted) return;
-
-    // Only fire if there are aligned gaps across all rings toward the player
-    final canShoot =
-        _shield?.canFireTowardGlobal(position, player.position) ?? false;
-    if (!canShoot) return;
-
-    // And only if target is within the front cone relative to enemy facing
-    if (!_isInFrontCone(player.position)) return;
-
-    // Compute world-space firing direction toward the player, but spawn from the enemy sprite's nose
-    final dir = (player.position - position).normalized();
-    final Vector2 fwd = Vector2(0, -1)..rotate(angle);
-    final double spawnDist = (size.y / 2) + 6.0; // just ahead of the sprite tip
-    final Vector2 startPos = position + fwd * spawnDist;
+  void _fireAlongAngle(double worldAngle) {
+    // Compute direction from center along the safe angle
+    final dir = Vector2(math.cos(worldAngle), math.sin(worldAngle));
+    // Spawn a bit away from the center along this direction to avoid overlapping the sprite
+    final double spawnDist = 12.0; // safely inside the innermost ring
+    final Vector2 startPos = position + dir * spawnDist;
 
     // SFX: enemy blast fired
     AudioManager.instance.playEnemyBlast();
 
+    // Dynamic blast speed based on level and difficulty (kept from previous tuning)
+    final level = gameRef.gm.currentLevel.value;
+    final diff = gameRef.gm.difficulty.value;
+    double levelMul;
+    switch (diff) {
+      case Difficulty.boring:
+        levelMul = math.pow(0.985, (level - 1).clamp(0, 999)).toDouble();
+        levelMul = levelMul.clamp(0.8, 1.0);
+        break;
+      case Difficulty.challenging:
+        levelMul = (1.0 + 0.02 * (level - 1)).clamp(1.0, 1.5);
+        break;
+      case Difficulty.frustrating:
+        levelMul = (1.0 + 0.035 * (level - 1)).clamp(1.0, 1.8);
+        break;
+    }
+    final diffMul = switch (diff) {
+      Difficulty.boring => 0.85,
+      Difficulty.challenging => 1.0,
+      Difficulty.frustrating => 1.15,
+    };
+    final blastSpeed = 580.0 * levelMul * diffMul;
+
     final blast = EnemyBlast(
       start: startPos,
       direction: dir,
-      baseSpeed: 580.0, // faster enemy blast per spec
+      baseSpeed: blastSpeed,
       growthFactorPerSecond: 1.5,
       initialSize: Size(18, 18),
     );

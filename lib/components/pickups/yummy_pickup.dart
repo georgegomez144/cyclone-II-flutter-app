@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:cyclone_game/game/audio_manager.dart';
 import 'package:cyclone_game/components/hazards/mine.dart';
+import 'package:cyclone_game/components/enemy/enemy_blast.dart';
 
 /// Base pickup component rendered with the `assets/yummy_sprite.png` sprite.
 /// Provides a small floating + flipping animation and handles collision
@@ -113,6 +114,15 @@ abstract class YummyPickup extends SpriteComponent
       // Small floating text feedback
       _spawnFloatingText();
       removeFromParent();
+    } else {
+      // In frustrating mode, enemy blasts and mines can destroy yummies
+      final diff = gameRef.gm.difficulty.value;
+      if (diff == Difficulty.frustrating &&
+          (other is EnemyBlast || other is SparkMine)) {
+        // SFX: yummy destroyed
+        AudioManager.instance.playYummyDiscard();
+        removeFromParent();
+      }
     }
   }
 

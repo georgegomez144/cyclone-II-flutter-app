@@ -123,6 +123,57 @@ class EnemyShield extends PositionComponent with HasGameRef<CycloneGame> {
         redRing.isAngleOpen(angle);
   }
 
+  /// Computes a safe world angle to fire through aligned openings across all rings
+  /// toward [targetWorld]. Returns null if there is no fully aligned opening.
+  /// The returned angle lies strictly within the intersection of the three open
+  /// segment intervals (centered when possible) to minimize grazing ring edges.
+  double? safeFireAngleTowardGlobal(Vector2 enemyCenter, Vector2 targetWorld) {
+    final to = targetWorld - enemyCenter;
+    if (to.length2 == 0) return null;
+    final double a = math.atan2(to.y, to.x);
+
+    // Helper to get the segment interval [start,end] (in radians) for a ring at angle a.
+    List<double>? _intervalFor(ShieldRing ring) {
+      final sides = ShieldRing.sides;
+      final segSize = 2 * math.pi / sides;
+      double localA = a - ring.angleOffset; // rotate into ring local
+      while (localA < 0) localA += 2 * math.pi;
+      while (localA >= 2 * math.pi) localA -= 2 * math.pi;
+      final int idx = (localA ~/ segSize) % sides;
+      // Must be an open segment to consider safe firing
+      if (!ring.isAngleOpen(a)) return null;
+      // Compute world start/end for this segment (centered on world space)
+      double start = ring.angleOffset + idx * segSize;
+      double end = ring.angleOffset + (idx + 1) * segSize;
+      // Unwrap start/end around 'a' to avoid crossing the 2π seam
+      while (start - a > math.pi) {
+        start -= 2 * math.pi;
+        end -= 2 * math.pi;
+      }
+      while (a - start > math.pi) {
+        start += 2 * math.pi;
+        end += 2 * math.pi;
+      }
+      return [start, end];
+    }
+
+    final iY = _intervalFor(yellowRing);
+    final iO = _intervalFor(orangeRing);
+    final iR = _intervalFor(redRing);
+    if (iY == null || iO == null || iR == null) return null;
+
+    final start = [iY[0], iO[0], iR[0]].reduce(math.max);
+    final end = [iY[1], iO[1], iR[1]].reduce(math.min);
+
+    if (end - start <= 1e-3) return null; // too tight or no overlap
+    final safe = (start + end) * 0.5;
+    // Normalize to -pi..pi
+    double norm = safe;
+    while (norm <= -math.pi) norm += 2 * math.pi;
+    while (norm > math.pi) norm -= 2 * math.pi;
+    return norm;
+  }
+
   void resetAll() {
     yellowRing.resetAll();
     orangeRing.resetAll();
