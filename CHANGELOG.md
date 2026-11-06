@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.18.5
+- Restrict castle blasts to its forward-facing nose.
+
 ## 1.18.4
 - Prevent the player ship from firing while the castle and rings respawn after victory.
 

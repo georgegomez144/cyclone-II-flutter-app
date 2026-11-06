@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:cyclone_game/components/enemy/enemy_blast.dart';
+import 'package:cyclone_game/components/enemy/enemy_facing.dart';
 import 'package:cyclone_game/components/enemy/shield_system.dart';
 import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/utils.dart';
@@ -128,22 +129,16 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
     // Visual rings are now rendered by EnemyShield child component.
   }
 
-  // Check whether a world point is within the enemy's forward firing cone.
-  // Front is along local -Y rotated by current angle. Half-angle ~45 degrees.
-  bool _isInFrontCone(Vector2 worldPoint, {double halfAngle = math.pi / 4}) {
-    final toPoint = (worldPoint - position);
-    if (toPoint.length2 == 0) return false;
-    final fwd = Vector2(0, -1)..rotate(angle);
-    final cosTheta = (fwd.dot(toPoint.normalized())).clamp(-1.0, 1.0);
-    final theta = math.acos(cosTheta);
-    return theta <= halfAngle;
-  }
-
   double? safeBlastAngleToward(Vector2 worldPoint, {required double leadTime}) {
-    return _shield?.safeFireAngleTowardGlobal(
+    const halfAngle = math.pi / 12;
+    if (!isPointInNoseCone(position, angle, worldPoint, halfAngle)) {
+      return null;
+    }
+
+    final safeAngle = _shield?.safeFireAngleTowardGlobal(
       position,
       worldPoint,
-      spawnDistance: 12,
+      spawnDistance: _blastSpawnDistance,
       speed: _blastSpeed,
       baseRadius: 9,
       growthPerSecond: 1.5,
@@ -151,6 +146,11 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
       maxDeviation: math.pi / 12,
       margin: 2,
     );
+    if (safeAngle == null ||
+        !isAngleWithinNose(angle, safeAngle, halfAngle)) {
+      return null;
+    }
+    return safeAngle;
   }
 
   void fireBlastAlongAngle(
@@ -158,11 +158,9 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
     double? speed,
     bool playSound = true,
   }) {
-    // Compute direction from center along the safe angle
+    // Compute direction from the castle's nose along the safe angle.
     final dir = Vector2(math.cos(worldAngle), math.sin(worldAngle));
-    // Spawn a bit away from the center along this direction to avoid overlapping the sprite
-    final double spawnDist = 12.0; // safely inside the innermost ring
-    final Vector2 startPos = position + dir * spawnDist;
+    final Vector2 startPos = position + dir * _blastSpawnDistance;
 
     if (playSound) AudioManager.instance.playEnemyBlast();
 
@@ -176,6 +174,8 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
     );
     gameRef.add(blast);
   }
+
+  double get _blastSpawnDistance => size.y / 2 - 2;
 
   double get _blastSpeed {
     final level = gameRef.gm.currentLevel.value;
