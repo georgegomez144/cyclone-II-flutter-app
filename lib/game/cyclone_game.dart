@@ -10,6 +10,7 @@ import 'package:cyclone_game/components/player/player.dart';
 import 'package:cyclone_game/components/player/player_bullet.dart';
 import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
 import 'package:cyclone_game/components/hazards/mine.dart';
+import 'package:cyclone_game/game/ui/victory_bonus_tally.dart';
 import 'package:cyclone_game/game/game_manager.dart';
 import 'package:cyclone_game/game/world/starfield.dart';
 import 'package:flame/components.dart';
@@ -61,6 +62,9 @@ class CycloneGame extends FlameGame
   bool _levelTransitioning = false;
   bool _isRespawning = false;
   TextComponent? _gameOverBanner;
+  TextComponent? _victoryBanner;
+  VictoryBonusTally? _bonusTally;
+  TimerComponent? _victoryTransitionTimer;
   bool _submittedThisRun = false;
 
   @override
@@ -174,6 +178,12 @@ class CycloneGame extends FlameGame
 
   void startGame() {
     _submittedThisRun = false;
+    _bonusTally?.removeFromParent();
+    _bonusTally = null;
+    _victoryBanner?.removeFromParent();
+    _victoryBanner = null;
+    _victoryTransitionTimer?.removeFromParent();
+    _victoryTransitionTimer = null;
     // If a startup demo or any intro overlays are still around, force-clean them
     isStartupDemo = false;
     // Remove any leftover fade or logo components to ensure a clean start
@@ -322,18 +332,15 @@ class CycloneGame extends FlameGame
     // Award base points for destroying enemy
     gm.addScore(100);
     // Award remaining time bonus
-    final rem = gm.levelBonus.value;
-    if (rem > 0) {
-      gm.addScore(rem);
-      gm.levelBonus.value = 0;
-    }
+    final bonus = gm.levelBonus.value;
+    gm.levelBonus.value = 0;
 
-    // Show centered 'You Won!' banner briefly
+    // Show the victory banner and count the time bonus into the score.
     final center = size / 2;
     final banner = TextComponent(
       text: 'You Won!',
       anchor: Anchor.center,
-      position: center,
+      position: Vector2(center.x, center.y - 56),
       priority: 1000,
       textRenderer: TextPaint(
         style: const TextStyle(
@@ -343,24 +350,24 @@ class CycloneGame extends FlameGame
         ),
       ),
     );
+    _victoryBanner = banner;
 
-    // Show quick summary: total points and ships remaining
-    final summary = TextComponent(
-      text: 'Score: ${gm.score.value}   Ships: ${gm.lives.value}',
-      anchor: Anchor.topCenter,
-      position: Vector2(center.x, center.y + 36),
-      priority: 1000,
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
+    final tally =
+        VictoryBonusTally(
+            total: bonus,
+            duration: 2.5,
+            startDelay: 0.35,
+            score: gm.score.value,
+            lives: gm.lives.value,
+            onAddScore: (points) => gm.addScore(points),
+            onComplete: _onVictoryTallyComplete,
+          )
+          ..position = Vector2(center.x, center.y + 2)
+          ..priority = 1000;
+    _bonusTally = tally;
 
     await add(banner);
-    await add(summary);
+    await add(tally);
 
     // Increment level
     gm.currentLevel.value = gm.currentLevel.value + 1;
@@ -371,23 +378,28 @@ class CycloneGame extends FlameGame
         starfield.randomize();
       } catch (_) {}
     }
+  }
 
-    // After a delay, remove banner and respawn enemy for next level.
-    add(
-      TimerComponent(
-        period: 3.0,
-        removeOnFinish: true,
-        onTick: () async {
-          banner.removeFromParent();
-          summary.removeFromParent();
-          await _spawnEnemy();
-          // Reset next level's bonus countdown and accumulator
-          gm.levelBonus.value = 5000;
-          _bonusTickAccum = 0;
-          _levelTransitioning = false;
-        },
-      ),
+  void _onVictoryTallyComplete() {
+    if (!isPlaying || _victoryTransitionTimer != null) return;
+    final timer = TimerComponent(
+      period: 1.5,
+      removeOnFinish: true,
+      onTick: () async {
+        _victoryTransitionTimer = null;
+        _victoryBanner?.removeFromParent();
+        _victoryBanner = null;
+        _bonusTally?.removeFromParent();
+        _bonusTally = null;
+        await _spawnEnemy();
+        // Reset next level's bonus countdown and accumulator
+        gm.levelBonus.value = 5000;
+        _bonusTickAccum = 0;
+        _levelTransitioning = false;
+      },
     );
+    _victoryTransitionTimer = timer;
+    add(timer);
   }
 
   // Returns a random spawn position for the player that is not close to the enemy
@@ -445,12 +457,21 @@ class CycloneGame extends FlameGame
   }
 
   void exitToHome() {
+    final wasPlaying = isPlaying;
+    showHomeOverlayClean();
+    // Transfer any remaining bonus before saving the run's score.
+    _bonusTally?.flush();
+    _bonusTally?.removeFromParent();
+    _bonusTally = null;
+    _victoryBanner?.removeFromParent();
+    _victoryBanner = null;
+    _victoryTransitionTimer?.removeFromParent();
+    _victoryTransitionTimer = null;
     // Save high score only when the player explicitly exits mid-run
-    if (isPlaying && !_submittedThisRun) {
+    if (wasPlaying && !_submittedThisRun) {
       _submittedThisRun = true;
       gm.submitHighScore(level: gm.currentLevel.value);
     }
-    showHomeOverlayClean();
   }
 
   /// Ensure Home overlay shows only the basic starfield and no audio.
@@ -797,12 +818,12 @@ class CycloneGame extends FlameGame
           onTick: () {
             final e = enemy;
             if (e == null) return;
-            final Vector2 d = (player.position - e.position).normalized();
-            final blast = EnemyBlast(
-              start: e.position + d * (e.size.y * 0.5 + 8),
-              direction: d,
+            final safeAngle = e.safeBlastAngleToward(
+              player.position,
+              leadTime: 0,
             );
-            add(blast);
+            if (safeAngle == null) return;
+            e.fireBlastAlongAngle(safeAngle, playSound: false);
           },
         ),
       );

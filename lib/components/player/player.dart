@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cyclone_game/components/player/player_bullet.dart';
+import 'package:cyclone_game/components/enemy/shield_player_bounce.dart';
 import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/game/game_manager.dart';
 import 'package:cyclone_game/utils.dart';
@@ -27,6 +28,7 @@ class Player extends PositionComponent
   bool hasContinuousFire = false; // hold to auto-fire
   bool hasTripleSpread = false; // fire 3-way spread
   bool oneHitShieldActive = false; // absorbs a single enemy blast
+  double oneHitShieldStrength = 0;
 
   // Ensure player has a pristine state at the start of each new game
   void resetForNewGame() {
@@ -35,6 +37,7 @@ class Player extends PositionComponent
     hasContinuousFire = false;
     hasTripleSpread = false;
     oneHitShieldActive = false;
+    oneHitShieldStrength = 0;
     _refreshShieldGlow();
 
     // Reset input and movement
@@ -68,6 +71,7 @@ class Player extends PositionComponent
       hasContinuousFire = false;
       hasTripleSpread = false;
       oneHitShieldActive = false;
+      oneHitShieldStrength = 0;
       _refreshShieldGlow();
       // Reset HUD bullet mode
       gm.currentBulletMode.value = BulletMode.single;
@@ -140,6 +144,13 @@ class Player extends PositionComponent
   void _refreshShieldGlow() {
     // Ensure both glow and electric effect reflect the active state
     if (oneHitShieldActive) {
+      final strengthRatio = (oneHitShieldStrength / 100).clamp(0.0, 1.0);
+      _shieldGlow?.paint.color = ui.Color.fromARGB(
+        (0x58 * strengthRatio).round(),
+        0x80,
+        0xD8,
+        0xFF,
+      );
       if (_shieldGlow != null && _shieldGlow!.parent == null) {
         add(_shieldGlow!);
       }
@@ -154,12 +165,25 @@ class Player extends PositionComponent
 
   void setOneHitShield(bool active) {
     oneHitShieldActive = active;
+    oneHitShieldStrength = active ? 100 : 0;
     _refreshShieldGlow();
   }
 
   void consumeOneHitShield() {
     if (!oneHitShieldActive) return;
     oneHitShieldActive = false;
+    oneHitShieldStrength = 0;
+    _refreshShieldGlow();
+  }
+
+  void damageOneHitShield(double pct) {
+    if (!oneHitShieldActive || pct <= 0) return;
+    oneHitShieldStrength = (oneHitShieldStrength - pct)
+        .clamp(0, 100)
+        .toDouble();
+    if (oneHitShieldStrength <= 0) {
+      oneHitShieldActive = false;
+    }
     _refreshShieldGlow();
   }
 
@@ -191,17 +215,29 @@ class Player extends PositionComponent
   double _cooldown = 0;
   final double bulletCooldown = 0.03; // seconds
 
-  // Expose limited interaction for collisions
-  void handleShieldImpact(Vector2 outwardNormal) {
-    // If moving toward the ring head-on (velocity aligns with outward normal), reverse direction
-    if (_velocity.length2 > 1e-3) {
-      final vNorm = _velocity.normalized();
-      final double cos = vNorm.dot(outwardNormal);
-      // Threshold for "head-on"; > ~0.7 means within ~45 degrees of normal
-      if (cos > 0.7) {
-        // Reverse velocity to "turn around"
-        _velocity = -_velocity;
-      }
+  Vector2 get velocity => _velocity.clone();
+
+  void bounceOff(Vector2 normal, {Vector2? surfaceVelocity}) {
+    final unitNormal = normal.normalized();
+    final surface = surfaceVelocity ?? Vector2.zero();
+    final relativeVelocity = _velocity - surface;
+    final incomingNormalSpeed = -relativeVelocity.dot(unitNormal);
+    if (incomingNormalSpeed <= 0) return;
+
+    _velocity = ShieldPlayerBounce.reflectVelocity(
+      _velocity,
+      unitNormal,
+      restitution: 0.9,
+      surfaceVelocity: surface,
+    );
+    final reboundNormalSpeed = (_velocity - surface).dot(unitNormal);
+    const minimumReboundSpeed = 80.0;
+    if (reboundNormalSpeed < minimumReboundSpeed) {
+      _velocity += unitNormal * (minimumReboundSpeed - reboundNormalSpeed);
+    }
+    final speed = _velocity.length;
+    if (speed > maxSpeed) {
+      _velocity = _velocity.normalized() * maxSpeed;
     }
   }
 
@@ -248,6 +284,7 @@ class Player extends PositionComponent
       position: size / 2,
     );
     add(_spriteComp);
+    _refreshShieldGlow();
   }
 
   @override

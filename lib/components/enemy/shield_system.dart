@@ -3,11 +3,12 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:cyclone_game/components/player/player_bullet.dart';
-import 'package:cyclone_game/components/player/player.dart';
 import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
 import 'package:cyclone_game/components/hazards/mine.dart';
-import 'package:cyclone_game/components/effects/electric_shield.dart';
 import 'package:cyclone_game/components/enemy/enemy_blast.dart';
+import 'package:cyclone_game/components/enemy/shield_fire_solver.dart';
+import 'package:cyclone_game/components/enemy/shield_player_bounce.dart';
+import 'package:cyclone_game/components/enemy/shield_ring_geometry.dart';
 import 'package:cyclone_game/game/cyclone_game.dart';
 
 enum ShieldSegmentState { healthy, weakened, destroyed }
@@ -28,11 +29,11 @@ class EnemyShield extends PositionComponent with HasGameRef<CycloneGame> {
   late final ShieldRing yellowRing;
   late final ShieldRing orangeRing;
   late final ShieldRing redRing;
+  double spinMultiplier = 1.0;
 
-  // Bounce ring that repels the player (outer red ring only).
-  late final _ShieldBounceRing _yellowBounce;
-  late final _ShieldBounceRing _orangeBounce;
-  late final _ShieldBounceRing _redBounce;
+  List<ShieldRing> get rings => [yellowRing, orangeRing, redRing];
+
+  Vector2? _previousPlayerPosition;
 
   @override
   Future<void> onLoad() async {
@@ -69,28 +70,15 @@ class EnemyShield extends PositionComponent with HasGameRef<CycloneGame> {
       spinSpeed: spinSpeed * 0.8,
       clockwise: true,
     );
+    for (final ring in [yellowRing, orangeRing, redRing]) {
+      ring.angularVelocity =
+          (ring.clockwise ? 1.0 : -1.0) * ring.spinSpeed * spinMultiplier;
+    }
 
     // Ensure visual order: outermost red, then orange, then yellow on top
     await add(redRing);
     await add(orangeRing);
     await add(yellowRing);
-
-    // Bounce rings: repel the player at each outer ring edge and connect to visual ring for flash feedback
-    _yellowBounce = _ShieldBounceRing(
-      radius: yellowRadius + strokeWidth * 0.8,
-      ring: yellowRing,
-    );
-    _orangeBounce = _ShieldBounceRing(
-      radius: orangeRadius + strokeWidth * 0.8,
-      ring: orangeRing,
-    );
-    _redBounce = _ShieldBounceRing(
-      radius: redRadius + strokeWidth * 0.8,
-      ring: redRing,
-    );
-    await add(_redBounce); // outermost on bottom
-    await add(_orangeBounce);
-    await add(_yellowBounce);
   }
 
   @override
@@ -109,69 +97,135 @@ class EnemyShield extends PositionComponent with HasGameRef<CycloneGame> {
       final steps = ((lvl - 1) ~/ 10).clamp(0, 1000);
       mul = (1.0 + 0.05 * steps).clamp(1.0, 1.8); // up to +80%
     }
-    yellowRing.updateSpin(dt * mul);
-    orangeRing.updateSpin(dt * mul);
-    redRing.updateSpin(dt * mul);
+    spinMultiplier = mul;
+    for (final ring in [yellowRing, orangeRing, redRing]) {
+      ring.angularVelocity =
+          (ring.clockwise ? 1.0 : -1.0) * ring.spinSpeed * spinMultiplier;
+      ring.updateSpin(dt);
+    }
+    _resolvePlayerBounce(dt);
+  }
+
+  void _resolvePlayerBounce(double dt) {
+    final player = gameRef.player;
+    if (!player.isMounted || !player.isAlive) {
+      _previousPlayerPosition = null;
+      return;
+    }
+
+    final enemy = parent;
+    if (enemy is! PositionComponent) return;
+
+    var previousPosition = _previousPlayerPosition?.clone();
+    if (previousPosition != null &&
+        ShieldPlayerBounce.isTeleport(
+          previousPosition: previousPosition,
+          currentPosition: player.position,
+          dt: dt,
+          maxSpeed: player.maxSpeed,
+          playerSize: player.size.x,
+        )) {
+      previousPosition = null;
+    }
+
+    final yellowApothem =
+        yellowRing.outerRadius * math.cos(math.pi / ShieldRing.sides);
+    final orangeApothem =
+        orangeRing.outerRadius * math.cos(math.pi / ShieldRing.sides);
+    final rings = [yellowRing, orangeRing, redRing];
+    for (var pass = 0; pass < 3; pass++) {
+      var resolvedCollision = false;
+      for (final ring in rings) {
+        final solidInnerRadius = identical(ring, orangeRing)
+            ? yellowApothem
+            : identical(ring, redRing)
+            ? orangeApothem
+            : null;
+        final collision = ShieldPlayerBounce.resolve(
+          center: enemy.position,
+          outerRadius: ring.outerRadius,
+          angleOffset: ring.angleOffset,
+          destroyedSegments: List.generate(
+            ShieldRing.sides,
+            ring.isSegmentDestroyed,
+          ),
+          playerPosition: player.position,
+          previousPlayerPosition: previousPosition,
+          playerRadius: player.size.x * 0.3,
+          velocity: player.velocity,
+          solidInnerRadius: solidInnerRadius,
+        );
+        if (collision == null) continue;
+
+        player.position = collision.correctedPosition;
+        final contactOffset = collision.contactPoint - enemy.position;
+        final surfaceVelocity = Vector2(
+          -ring.angularVelocity * contactOffset.y,
+          ring.angularVelocity * contactOffset.x,
+        );
+        player.bounceOff(collision.normal, surfaceVelocity: surfaceVelocity);
+        ring.flashSegment(collision.segmentIndex, duration: 0.35);
+        previousPosition = player.position.clone();
+        resolvedCollision = true;
+      }
+      if (!resolvedCollision) break;
+    }
+    _previousPlayerPosition = player.position.clone();
   }
 
   bool canFireTowardGlobal(Vector2 enemyCenter, Vector2 targetWorld) {
-    final dir = targetWorld - enemyCenter;
-    if (dir.length2 == 0) return false;
-    final angle = math.atan2(dir.y, dir.x); // -pi..pi
-    return yellowRing.isAngleOpen(angle) &&
-        orangeRing.isAngleOpen(angle) &&
-        redRing.isAngleOpen(angle);
+    return safeFireAngleTowardGlobal(
+          enemyCenter,
+          targetWorld,
+          spawnDistance: 0,
+          speed: 1e9,
+          baseRadius: 0,
+          growthPerSecond: 1,
+          leadTime: 0,
+          maxDeviation: 0,
+          margin: 0,
+        ) !=
+        null;
   }
 
-  /// Computes a safe world angle to fire through aligned openings across all rings
-  /// toward [targetWorld]. Returns null if there is no fully aligned opening.
-  /// The returned angle lies strictly within the intersection of the three open
-  /// segment intervals (centered when possible) to minimize grazing ring edges.
-  double? safeFireAngleTowardGlobal(Vector2 enemyCenter, Vector2 targetWorld) {
+  /// Computes a safe world angle for an expanding blast toward [targetWorld].
+  double? safeFireAngleTowardGlobal(
+    Vector2 enemyCenter,
+    Vector2 targetWorld, {
+    required double spawnDistance,
+    required double speed,
+    required double baseRadius,
+    required double growthPerSecond,
+    required double leadTime,
+    double maxDeviation = math.pi / 12,
+    double margin = 2,
+  }) {
     final to = targetWorld - enemyCenter;
     if (to.length2 == 0) return null;
-    final double a = math.atan2(to.y, to.x);
-
-    // Helper to get the segment interval [start,end] (in radians) for a ring at angle a.
-    List<double>? _intervalFor(ShieldRing ring) {
-      final sides = ShieldRing.sides;
-      final segSize = 2 * math.pi / sides;
-      double localA = a - ring.angleOffset; // rotate into ring local
-      while (localA < 0) localA += 2 * math.pi;
-      while (localA >= 2 * math.pi) localA -= 2 * math.pi;
-      final int idx = (localA ~/ segSize) % sides;
-      // Must be an open segment to consider safe firing
-      if (!ring.isAngleOpen(a)) return null;
-      // Compute world start/end for this segment (centered on world space)
-      double start = ring.angleOffset + idx * segSize;
-      double end = ring.angleOffset + (idx + 1) * segSize;
-      // Unwrap start/end around 'a' to avoid crossing the 2π seam
-      while (start - a > math.pi) {
-        start -= 2 * math.pi;
-        end -= 2 * math.pi;
-      }
-      while (a - start > math.pi) {
-        start += 2 * math.pi;
-        end += 2 * math.pi;
-      }
-      return [start, end];
-    }
-
-    final iY = _intervalFor(yellowRing);
-    final iO = _intervalFor(orangeRing);
-    final iR = _intervalFor(redRing);
-    if (iY == null || iO == null || iR == null) return null;
-
-    final start = [iY[0], iO[0], iR[0]].reduce(math.max);
-    final end = [iY[1], iO[1], iR[1]].reduce(math.min);
-
-    if (end - start <= 1e-3) return null; // too tight or no overlap
-    final safe = (start + end) * 0.5;
-    // Normalize to -pi..pi
-    double norm = safe;
-    while (norm <= -math.pi) norm += 2 * math.pi;
-    while (norm > math.pi) norm -= 2 * math.pi;
-    return norm;
+    return ShieldFireSolver.findSafeAngle(
+      rings: [yellowRing, orangeRing, redRing]
+          .map(
+            (ring) => ShieldRingSnapshot(
+              outerRadius: ring.outerRadius,
+              innerRadius: ring.innerRadius,
+              angleOffset: ring.angleOffset,
+              angularVelocity: ring.angularVelocity,
+              destroyedSegments: List.generate(
+                ShieldRing.sides,
+                ring.isSegmentDestroyed,
+              ),
+            ),
+          )
+          .toList(growable: false),
+      targetAngle: math.atan2(to.y, to.x),
+      spawnDistance: spawnDistance,
+      speed: speed,
+      baseRadius: baseRadius,
+      growthPerSecond: growthPerSecond,
+      leadTime: leadTime,
+      maxDeviation: maxDeviation,
+      margin: margin,
+    );
   }
 
   void resetAll() {
@@ -199,8 +253,17 @@ class ShieldRing extends PositionComponent {
   final double spinSpeed; // radians/sec (magnitude)
   final bool clockwise;
 
+  double angularVelocity = 0;
+
   // angleOffset rotates the ring around center over time.
   double angleOffset = 0;
+
+  double edgeRadiusAt(double worldAngle) => ShieldRingGeometry.edgeRadiusAt(
+    outerRadius: outerRadius,
+    angleOffset: angleOffset,
+    worldAngle: worldAngle,
+    sides: sides,
+  );
 
   final List<ShieldSegmentState> _segments = List.filled(
     sides,
@@ -209,6 +272,7 @@ class ShieldRing extends PositionComponent {
 
   // Flash timers per segment for impact feedback
   final List<double> _flashTimers = List.filled(sides, 0);
+  final List<double> _flashDurations = List.filled(sides, 0.12);
 
   late final List<_ShieldSegmentCollider> _colliders;
 
@@ -233,35 +297,33 @@ class ShieldRing extends PositionComponent {
   }
 
   void updateSpin(double dt) {
-    final dir = clockwise ? 1.0 : -1.0;
-    angleOffset = (angleOffset + dir * spinSpeed * dt) % (2 * math.pi);
+    angleOffset = (angleOffset + angularVelocity * dt) % (2 * math.pi);
   }
 
-  bool isAngleOpen(double worldAngle) {
-    // Convert worldAngle to ring-local segment index using angleOffset
-    double a = worldAngle - angleOffset; // rotate opposite to offset
-    // normalize to 0..2pi
-    while (a < 0) a += 2 * math.pi;
-    while (a >= 2 * math.pi) a -= 2 * math.pi;
-    final double segSize = 2 * math.pi / sides;
-    final int idx = (a ~/ segSize) % sides;
-    return _segments[idx] == ShieldSegmentState.destroyed;
-  }
+  int segmentIndexAt(double worldAngle) => ShieldFireSolver.segmentIndexAt(
+    worldAngle,
+    angleOffset,
+    segmentCount: sides,
+  );
+
+  bool isAngleOpen(double worldAngle) =>
+      _segments[segmentIndexAt(worldAngle)] == ShieldSegmentState.destroyed;
+
+  bool isSegmentDestroyed(int index) =>
+      index >= 0 &&
+      index < sides &&
+      _segments[index] == ShieldSegmentState.destroyed;
 
   // Trigger a brief flash on the segment aligned with worldAngle
   void flashAtAngle(double worldAngle, {double duration = 0.12}) {
-    double a = worldAngle - angleOffset;
-    while (a < 0) a += 2 * math.pi;
-    while (a >= 2 * math.pi) a -= 2 * math.pi;
-    final double segSize = 2 * math.pi / sides;
-    final int idx = (a ~/ segSize) % sides;
-    flashSegment(idx, duration: duration);
+    flashSegment(segmentIndexAt(worldAngle), duration: duration);
   }
 
   void flashSegment(int index, {double duration = 0.12}) {
     if (index < 0 || index >= sides) return;
     if (_segments[index] == ShieldSegmentState.destroyed) return;
     _flashTimers[index] = duration;
+    _flashDurations[index] = duration;
   }
 
   void hitSegment(int index) {
@@ -283,6 +345,7 @@ class ShieldRing extends PositionComponent {
       _segments[i] = ShieldSegmentState.healthy;
       _colliders[i].setActive(true);
       _flashTimers[i] = 0;
+      _flashDurations[i] = 0.12;
     }
   }
 
@@ -406,12 +469,19 @@ class ShieldRing extends PositionComponent {
       // 6) Flash overlay when recently impacted
       final ft = _flashTimers[i];
       if (ft > 0) {
-        final alpha = (ft.clamp(0.0, 0.12) as double) / 0.12; // fade
+        final alpha = (ft / _flashDurations[i]).clamp(0.0, 1.0).toDouble();
+        final flashGlowPaint = Paint()
+          ..color = glowColor.withValues(alpha: alpha)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 9
+          ..blendMode = BlendMode.plus
+          ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 8);
         final flashPaint = Paint()
-          ..color = Colors.white.withOpacity(0.9 * alpha)
+          ..color = Colors.white.withValues(alpha: alpha)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 5
           ..blendMode = BlendMode.plus;
+        canvas.drawLine(p1o, p2o, flashGlowPaint);
         canvas.drawLine(p1o, p2o, flashPaint);
       }
     }
@@ -570,83 +640,6 @@ class _ShieldSegmentCollider extends PositionComponent with CollisionCallbacks {
       // Mines should ride the shield rings instead of being destroyed.
       // No action here: allow the mine to keep moving; its own logic will
       // detect proximity to ring radii and orbit until it finds an opening.
-    }
-  }
-}
-
-class _ShieldBounceRing extends PositionComponent with CollisionCallbacks {
-  _ShieldBounceRing({required this.radius, required this.ring})
-    : super(size: Vector2.zero(), anchor: Anchor.center);
-
-  final double radius;
-  final ShieldRing ring;
-  late final CircleHitbox _hitbox;
-
-  @override
-  Future<void> onLoad() async {
-    await super.onLoad();
-    // Ensure this component has a size that matches the intended diameter
-    size = Vector2.all(2 * radius);
-    // Activate collision so the ring acts as a solid barrier for the player
-    _hitbox = CircleHitbox.relative(0.5, parentSize: size)
-      ..collisionType = CollisionType.active;
-    add(_hitbox);
-  }
-
-  @override
-  void onCollisionStart(
-    Set<Vector2> intersectionPoints,
-    PositionComponent other,
-  ) {
-    super.onCollisionStart(intersectionPoints, other);
-    _repelIfPlayer(other);
-  }
-
-  @override
-  void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
-    super.onCollision(intersectionPoints, other);
-    _repelIfPlayer(other);
-  }
-
-  void _repelIfPlayer(PositionComponent other) {
-    // Keep only player outside of the bounce radius; other entities unaffected here.
-    if (other is! Player) return;
-    // Compute world-space center by walking up two levels: EnemyShield -> EnemySprite
-    Vector2 center = Vector2.zero();
-    final p = parent;
-    if (p is PositionComponent) {
-      final gp = p.parent;
-      if (gp is PositionComponent) {
-        center = gp.position.clone();
-      }
-    }
-    // If center is zero (fallback), do nothing to avoid snapping to origin.
-    if (center == Vector2.zero()) return;
-
-    final toPlayer = other.position - center;
-    double dist = toPlayer.length;
-    if (dist == 0) {
-      // Nudge in a random outward direction if exactly centered
-      dist = 0.0001;
-    }
-    final dir = toPlayer.length2 == 0
-        ? Vector2(1, 0)
-        : toPlayer / dist; // outward normal
-
-    // Desired minimal distance from center: ring radius plus a small margin and player's radius
-    final playerRadius = other.size.length / 4; // approx
-    final margin = 2.0;
-    final minDist = radius + playerRadius + margin;
-    if (dist < minDist) {
-      // Clamp player to the ring boundary just outside
-      other.position = center + dir * minDist;
-
-      // Head-on detection and player turnaround
-      other.handleShieldImpact(dir);
-
-      // Flash the ring segment at the impact angle
-      final impactAngle = math.atan2(dir.y, dir.x);
-      ring.flashAtAngle(impactAngle);
     }
   }
 }

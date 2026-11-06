@@ -20,6 +20,8 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
 
   EnemyShield? _shield;
 
+  EnemyShield? get shield => _shield;
+
   // Turning/aiming
   final double _baseTurnRate = 0.8; // rad/sec at level 1 (pretty slow)
   final double _turnRatePerLevel = 0.02; // small increase per level
@@ -32,6 +34,7 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
+    await EnemyBlast.preload();
     sprite = await Sprite.load('enemy_sprite.png');
     // Start centered
     position = gameRef.size / 2;
@@ -102,13 +105,11 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
 
     // FIRING: immediate on aligned gap across all rings; never hit rings
     if (player.isMounted && _shield != null) {
-      final safeAngle = _shield!.safeFireAngleTowardGlobal(
-        position,
-        player.position,
-      );
+      final blastSpeed = _blastSpeed;
+      final safeAngle = safeBlastAngleToward(player.position, leadTime: dt);
       if (safeAngle != null) {
         if (!_openingLatched) {
-          _fireAlongAngle(safeAngle);
+          fireBlastAlongAngle(safeAngle, speed: blastSpeed);
           _openingLatched = true; // latch until opening closes again
         }
       } else {
@@ -136,47 +137,59 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
     return theta <= halfAngle;
   }
 
-  void _fireAlongAngle(double worldAngle) {
+  double? safeBlastAngleToward(Vector2 worldPoint, {required double leadTime}) {
+    return _shield?.safeFireAngleTowardGlobal(
+      position,
+      worldPoint,
+      spawnDistance: 12,
+      speed: _blastSpeed,
+      baseRadius: 9,
+      growthPerSecond: 1.5,
+      leadTime: leadTime,
+      maxDeviation: math.pi / 12,
+      margin: 2,
+    );
+  }
+
+  void fireBlastAlongAngle(
+    double worldAngle, {
+    double? speed,
+    bool playSound = true,
+  }) {
     // Compute direction from center along the safe angle
     final dir = Vector2(math.cos(worldAngle), math.sin(worldAngle));
     // Spawn a bit away from the center along this direction to avoid overlapping the sprite
     final double spawnDist = 12.0; // safely inside the innermost ring
     final Vector2 startPos = position + dir * spawnDist;
 
-    // SFX: enemy blast fired
-    AudioManager.instance.playEnemyBlast();
+    if (playSound) AudioManager.instance.playEnemyBlast();
 
-    // Dynamic blast speed based on level and difficulty (kept from previous tuning)
-    final level = gameRef.gm.currentLevel.value;
-    final diff = gameRef.gm.difficulty.value;
-    double levelMul;
-    switch (diff) {
-      case Difficulty.boring:
-        levelMul = math.pow(0.985, (level - 1).clamp(0, 999)).toDouble();
-        levelMul = levelMul.clamp(0.8, 1.0);
-        break;
-      case Difficulty.challenging:
-        levelMul = (1.0 + 0.02 * (level - 1)).clamp(1.0, 1.5);
-        break;
-      case Difficulty.frustrating:
-        levelMul = (1.0 + 0.035 * (level - 1)).clamp(1.0, 1.8);
-        break;
-    }
-    final diffMul = switch (diff) {
-      Difficulty.boring => 0.85,
-      Difficulty.challenging => 1.0,
-      Difficulty.frustrating => 1.15,
-    };
-    final blastSpeed = 580.0 * levelMul * diffMul;
-
+    final blastSpeed = speed ?? _blastSpeed;
     final blast = EnemyBlast(
       start: startPos,
       direction: dir,
       baseSpeed: blastSpeed,
       growthFactorPerSecond: 1.5,
-      initialSize: Size(18, 18),
+      initialSize: const Size(18, 18),
     );
     gameRef.add(blast);
+  }
+
+  double get _blastSpeed {
+    final level = gameRef.gm.currentLevel.value;
+    final diff = gameRef.gm.difficulty.value;
+    final levelMul = switch (diff) {
+      Difficulty.boring =>
+        math.pow(0.985, (level - 1).clamp(0, 999)).toDouble().clamp(0.8, 1.0),
+      Difficulty.challenging => (1.0 + 0.02 * (level - 1)).clamp(1.0, 1.5),
+      Difficulty.frustrating => (1.0 + 0.035 * (level - 1)).clamp(1.0, 1.8),
+    };
+    final diffMul = switch (diff) {
+      Difficulty.boring => 0.85,
+      Difficulty.challenging => 1.0,
+      Difficulty.frustrating => 1.15,
+    };
+    return (580.0 * levelMul * diffMul).toDouble();
   }
 
   bool hasAlignedGapsToward(Vector2 worldPoint) {

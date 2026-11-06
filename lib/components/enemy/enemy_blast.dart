@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cyclone_game/components/effects/explosion.dart';
@@ -8,6 +9,8 @@ import 'package:flutter/material.dart';
 
 /// Enemy blast now vibrantly glows blue | purple | red.
 class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
+  static Sprite? _cachedSprite;
+  static Future<Sprite>? _spriteLoading;
   // collision handled by shield colliders
   EnemyBlast({
     required this.start,
@@ -40,19 +43,37 @@ class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
 
   final Color _glowColor;
 
+  static Future<void> preload() async {
+    _cachedSprite ??= await (_spriteLoading ??= Sprite.load('enemy_blast.png'));
+  }
+
   late final Vector2 _vel;
   double _scale = 1.0;
   double _t = 0.0;
   bool _hitApplied = false;
 
   @override
-  Future<void> onLoad() async {
+  FutureOr<void> onLoad() {
+    final cachedSprite = _cachedSprite;
+    if (cachedSprite != null) {
+      _initialize(cachedSprite);
+      return super.onLoad();
+    }
+    return _loadSpriteAndInitialize();
+  }
+
+  Future<void> _loadSpriteAndInitialize() async {
     await super.onLoad();
+    final loadedSprite = _cachedSprite ??= await (_spriteLoading ??=
+        Sprite.load('enemy_blast.png'));
+    _initialize(loadedSprite);
+  }
+
+  void _initialize(Sprite loadedSprite) {
     position = start.clone();
     size = Vector2(initialSize.width, initialSize.height);
     _vel = direction.normalized() * baseSpeed;
-    // Load sprite from assets (Flame images prefix set to 'assets/' in game)
-    sprite = await Sprite.load('enemy_blast.png');
+    sprite = loadedSprite;
     // Tint sprite slightly toward the glow color for cohesion
     paint.color = _glowColor.withOpacity(0.9);
     // Add a hitbox so shield segments can intercept blasts

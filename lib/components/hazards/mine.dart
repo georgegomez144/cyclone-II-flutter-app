@@ -7,11 +7,12 @@ import 'package:flame/components.dart';
 import 'package:flame/collisions.dart';
 import 'package:flutter/material.dart';
 import 'package:cyclone_game/game/audio_manager.dart';
+import 'package:cyclone_game/components/enemy/shield_system.dart';
 
 /// Spark mine that slowly moves around and homes toward the player's ship.
 /// It can get caught on the enemy's shield rings and orbit until it finds
-/// an opening. On touching the ship, it damages shields by 25% and
-/// destroys the ship when shields deplete to 0.
+/// an opening. On touching the ship, it removes 25% of a pickup shield's
+/// charge without harming the ship, or damages ship shields if none is active.
 class SparkMine extends SpriteComponent
     with CollisionCallbacks, HasGameRef<CycloneGame> {
   SparkMine({Vector2? start})
@@ -27,6 +28,7 @@ class SparkMine extends SpriteComponent
   final double orbitSpeed = 60; // px/sec along ring
   final double shipHitRadius = 12; // reduced with size
   Vector2 _velocity = Vector2.zero();
+  ShieldRing? _orbitRing;
 
   @override
   Future<void> onLoad() async {
@@ -110,42 +112,62 @@ class SparkMine extends SpriteComponent
     // If enemy exists and we are near any of its shield rings, orbit around
     final enemy = gameRef.enemy;
     bool orbited = false;
-    if (enemy != null && enemy.isMounted) {
+    final shield = enemy?.shield;
+    if (enemy != null && enemy.isMounted && shield != null && shield.isLoaded) {
       final toEnemy = position - enemy.position;
       final dist = toEnemy.length;
-      // Approx ring radii from enemy shield_system setup (match EnemySprite)
-      final rYellow = enemy.size.x * 1.15;
-      final rOrange = rYellow * 1.35;
-      final rRed = rOrange * 1.25;
-      final radii = [rYellow, rOrange, rRed];
-      for (final r in radii) {
-        if ((dist - r).abs() < 10) {
-          // If the mine is roughly aligned with the player from the enemy center,
-          // detach and pursue the player instead of continuing to orbit.
-          final player = gameRef.player;
-          if (player.isMounted) {
-            final toPlayerFromEnemy = (player.position - enemy.position)
-                .normalized();
-            final radial = toEnemy.normalized();
-            final cosAngle = toPlayerFromEnemy.dot(radial).clamp(-1.0, 1.0);
-            final angleDiff = math.acos(cosAngle); // 0..pi
-            if (angleDiff < math.pi / 12) {
-              // ~15 degrees alignment
-              // Skip orbiting this frame so we can home toward the player
-              continue;
+      if (dist > 0) {
+        final worldAngle = math.atan2(toEnemy.y, toEnemy.x);
+        final rings = shield.rings;
+        final ringsToCheck = _orbitRing == null
+            ? rings
+            : [_orbitRing!, ...rings.where((ring) => ring != _orbitRing)];
+        for (final ring in ringsToCheck) {
+          final edgeRadius = ring.edgeRadiusAt(worldAngle);
+          if ((dist - edgeRadius).abs() < 10) {
+            // If the mine is roughly aligned with the player from the enemy center,
+            // detach and pursue the player instead of continuing to orbit.
+            final player = gameRef.player;
+            if (player.isMounted) {
+              final toPlayerFromEnemy = (player.position - enemy.position)
+                  .normalized();
+              final radial = toEnemy.normalized();
+              final cosAngle = toPlayerFromEnemy.dot(radial).clamp(-1.0, 1.0);
+              final angleDiff = math.acos(cosAngle); // 0..pi
+              if (angleDiff < math.pi / 12) {
+                // ~15 degrees alignment
+                // Skip orbiting this frame so we can home toward the player
+                _orbitRing = null;
+                continue;
+              }
             }
+
+            final direction = ring.clockwise ? 1.0 : -1.0;
+            final nextAngle = worldAngle + direction * dOrbit / dist * dt;
+            final nextRadius = ring.edgeRadiusAt(nextAngle);
+            var rideRadius = nextRadius;
+            if (!identical(_orbitRing, ring)) {
+              final blend = 1 - math.exp(-40 * dt);
+              rideRadius = dist + (nextRadius - dist) * blend;
+              if ((nextRadius - rideRadius).abs() < 0.1) {
+                rideRadius = nextRadius;
+                _orbitRing = ring;
+              }
+            }
+            position =
+                enemy.position +
+                Vector2(math.cos(nextAngle), math.sin(nextAngle)) * rideRadius;
+            _velocity = Vector2.zero();
+            orbited = true;
+            break;
           }
-          // close to ring path -> ride along tangentially
-          final tangential = Vector2(-toEnemy.y, toEnemy.x).normalized();
-          position += tangential * dOrbit * dt;
-          orbited = true;
-          break;
         }
       }
     }
 
     // If not orbiting, apply gentle homing toward player
     if (!orbited) {
+      _orbitRing = null;
       final player = gameRef.player;
       if (player.isMounted) {
         final desired = (player.position - position).normalized();
@@ -188,6 +210,12 @@ class SparkMine extends SpriteComponent
   }
 
   void _applyMineDamage(GameManager gm) {
+    final player = gameRef.player;
+    if (player.oneHitShieldActive) {
+      player.damageOneHitShield(25);
+      return;
+    }
+
     // 25% shield damage; if shields reach 0, destroy ship
     final before = gm.shields.value;
     gm.damageShield(25);

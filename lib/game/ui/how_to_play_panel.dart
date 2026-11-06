@@ -71,7 +71,7 @@ class HowToPlayContent extends StatelessWidget {
               label: 'Spark Mine',
               assetPath: 'lib/assets/spark_mine_sprite.png',
               description:
-                  'Drifts and can home in. On contact: heavy shield damage or death if shields are gone.',
+                  'Drifts and can home in. On contact, removes 25% of a pickup shield without damaging your ship; otherwise damages your ship shields.',
               animate: _Anim.wiggle,
             ),
           ],
@@ -85,7 +85,7 @@ class HowToPlayContent extends StatelessWidget {
               assetPath: 'lib/assets/yummy_sprite.png',
               colorTint: Color(0xFFEFFF57),
               description:
-                  'Grants a one-hit shield that blocks the next enemy blast.',
+                  'Grants a shield: mines remove 25% of its charge, while one enemy blast or shot consumes it completely.',
               animate: _Anim.pulse,
             ),
             SizedBox(height: 10),
