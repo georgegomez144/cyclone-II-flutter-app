@@ -1,5 +1,6 @@
 import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/game/game_manager.dart';
+import 'package:cyclone_game/game/number_format.dart';
 import 'package:cyclone_game/utils.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
@@ -129,7 +130,10 @@ class _HomeMenuState extends State<HomeMenu> {
             ),
           ),
           const SizedBox(height: 6),
-          Text('Score: $score', style: const TextStyle(color: Colors.amber)),
+          Text(
+            'Score: ${formatWithCommas(score)}',
+            style: const TextStyle(color: Colors.amber),
+          ),
           Text('Level: $level', style: const TextStyle(color: Colors.amber)),
         ],
       ),
@@ -241,7 +245,7 @@ class _HomeMenuState extends State<HomeMenu> {
                                 ),
                                 const SizedBox(width: 32),
                                 Text(
-                                  '${list[i].score}',
+                                  formatWithCommas(list[i].score),
                                   style: const TextStyle(
                                     color: Colors.orangeAccent,
                                   ),

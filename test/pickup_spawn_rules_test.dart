@@ -3,6 +3,27 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('PickupSpawnRules', () {
+    test('does not spawn FlareYummy during a level transition', () {
+      expect(
+        PickupSpawnRules.canSpawnFlare(level: 15, levelTransitioning: true),
+        isFalse,
+      );
+    });
+
+    test('spawns FlareYummy after level 14 outside a transition', () {
+      expect(
+        PickupSpawnRules.canSpawnFlare(level: 15, levelTransitioning: false),
+        isTrue,
+      );
+    });
+
+    test('does not spawn FlareYummy at or below level 14', () {
+      expect(
+        PickupSpawnRules.canSpawnFlare(level: 14, levelTransitioning: false),
+        isFalse,
+      );
+    });
+
     test('spawns pickups 10% more frequently from level 1', () {
       expect(PickupSpawnRules.intervalForLevel(1), closeTo(10.0 / 1.10, 0.001));
     });

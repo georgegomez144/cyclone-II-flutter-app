@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cyclone_game/components/player/player_bullet.dart';
+import 'package:cyclone_game/components/player/shield_stack_rules.dart';
 import 'package:cyclone_game/components/enemy/shield_player_bounce.dart';
 import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/game/game_manager.dart';
@@ -29,8 +30,9 @@ class Player extends PositionComponent
   // Power-ups
   bool hasContinuousFire = false; // hold to auto-fire
   bool hasTripleSpread = false; // fire 3-way spread
-  bool oneHitShieldActive = false; // absorbs a single enemy blast
   double oneHitShieldStrength = 0;
+  bool get oneHitShieldActive => oneHitShieldStrength > 0;
+  int get shieldCount => ShieldStackRules.countFor(oneHitShieldStrength);
 
   // Ensure player has a pristine state at the start of each new game
   void resetForNewGame() {
@@ -38,7 +40,6 @@ class Player extends PositionComponent
     // Clear all power-ups and visuals
     hasContinuousFire = false;
     hasTripleSpread = false;
-    oneHitShieldActive = false;
     oneHitShieldStrength = 0;
     _refreshShieldGlow();
 
@@ -73,7 +74,6 @@ class Player extends PositionComponent
     if (!keep) {
       hasContinuousFire = false;
       hasTripleSpread = false;
-      oneHitShieldActive = false;
       oneHitShieldStrength = 0;
       _refreshShieldGlow();
       // Reset HUD bullet mode
@@ -146,10 +146,17 @@ class Player extends PositionComponent
   ElectricShield? _electricShield;
 
   void _refreshShieldGlow() {
-    gm.playerShield.value = oneHitShieldActive ? oneHitShieldStrength : 0;
+    gm.playerShield.value = ShieldStackRules.topLayerStrength(
+      oneHitShieldStrength,
+    );
+    gm.playerShieldCount.value = shieldCount;
     // Ensure both glow and electric effect reflect the active state
     if (oneHitShieldActive) {
-      final strengthRatio = (oneHitShieldStrength / 100).clamp(0.0, 1.0);
+      final strengthRatio =
+          (gm.playerShield.value / ShieldStackRules.strengthPerShield).clamp(
+            0.0,
+            1.0,
+          );
       _shieldGlow?.paint.color = ui.Color.fromARGB(
         (0x58 * strengthRatio).round(),
         0x80,
@@ -169,26 +176,27 @@ class Player extends PositionComponent
   }
 
   void setOneHitShield(bool active) {
-    oneHitShieldActive = active;
-    oneHitShieldStrength = active ? 100 : 0;
+    oneHitShieldStrength = active ? ShieldStackRules.strengthPerShield : 0;
     _refreshShieldGlow();
+  }
+
+  bool addShield() {
+    final nextStrength = ShieldStackRules.collect(oneHitShieldStrength);
+    if (nextStrength == oneHitShieldStrength) return false;
+    oneHitShieldStrength = nextStrength;
+    _refreshShieldGlow();
+    return true;
   }
 
   void consumeOneHitShield() {
     if (!oneHitShieldActive) return;
-    oneHitShieldActive = false;
-    oneHitShieldStrength = 0;
+    oneHitShieldStrength = ShieldStackRules.consumeOne(oneHitShieldStrength);
     _refreshShieldGlow();
   }
 
   void damageOneHitShield(double pct) {
     if (!oneHitShieldActive || pct <= 0) return;
-    oneHitShieldStrength = (oneHitShieldStrength - pct)
-        .clamp(0, 100)
-        .toDouble();
-    if (oneHitShieldStrength <= 0) {
-      oneHitShieldActive = false;
-    }
+    oneHitShieldStrength = ShieldStackRules.damage(oneHitShieldStrength, pct);
     _refreshShieldGlow();
   }
 

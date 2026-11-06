@@ -1,5 +1,6 @@
 import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/game/game_manager.dart';
+import 'package:cyclone_game/game/number_format.dart';
 import 'package:cyclone_game/game/ui/shield_meter.dart';
 import 'package:cyclone_game/utils.dart';
 import 'package:flutter/material.dart';
@@ -61,7 +62,7 @@ class _HudOverlayState extends State<HudOverlay> {
               const Icon(Icons.star, color: Colors.amber, size: 16),
               const SizedBox(width: 6),
               Text(
-                'Score: $value',
+                'Score: ${formatWithCommas(value)}',
                 style: const TextStyle(
                   color: Colors.amber,
                   fontWeight: FontWeight.w600,
@@ -82,7 +83,7 @@ class _HudOverlayState extends State<HudOverlay> {
               const Icon(Icons.military_tech, color: Colors.amber, size: 16),
               const SizedBox(width: 6),
               Text(
-                'Bonus: $value',
+                'Bonus: ${formatWithCommas(value)}',
                 style: const TextStyle(
                   color: Colors.amber,
                   fontWeight: FontWeight.w600,

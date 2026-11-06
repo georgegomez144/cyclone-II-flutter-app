@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/game/game_manager.dart';
+import 'package:cyclone_game/game/number_format.dart';
 import 'package:cyclone_game/game/pickup_collect_rules.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
@@ -184,7 +185,8 @@ abstract class YummyPickup extends SpriteComponent
   }
 
   /// Floating text shown when this pickup is collected.
-  String floatingText() => points != null ? '+$points' : 'Shield Full';
+  String floatingText() =>
+      points != null ? '+${formatWithCommas(points!)}' : 'Shield Full';
 
   /// Apply this pickup's gameplay effect.
   void applyEffect(GameManager gm);
@@ -192,6 +194,8 @@ abstract class YummyPickup extends SpriteComponent
 
 class ShieldYummy extends YummyPickup {
   ShieldYummy() : super(colorTint: Colors.yellowAccent.withOpacity(0.9));
+
+  bool _shieldAdded = false;
 
   @override
   Future<void> onLoad() async {
@@ -217,12 +221,11 @@ class ShieldYummy extends YummyPickup {
   }
 
   @override
-  String floatingText() => 'Shield +1';
+  String floatingText() => _shieldAdded ? 'Shield +1' : 'Shield Full';
 
   @override
   void applyEffect(GameManager gm) {
-    // Grants a single-hit shield that blocks one enemy blast.
-    gameRef.player.setOneHitShield(true);
+    _shieldAdded = gameRef.player.addShield();
   }
 }
 

@@ -36,7 +36,12 @@ void main() {
     expect(indicator.valueColor!.value, Colors.lightBlueAccent);
     expect(indicator.value, 0.65);
 
+    gameManager.playerShieldCount.value = 2;
+    await tester.pump();
+    expect(find.text('65% x2'), findsOneWidget);
+
     gameManager.playerShield.value = 0;
+    gameManager.playerShieldCount.value = 0;
     await tester.pump();
 
     expect(find.text('72%'), findsOneWidget);

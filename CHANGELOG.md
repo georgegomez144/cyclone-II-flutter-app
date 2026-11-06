@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.30.1
+- Continue spawning yummy pickups during the victory bonus tally.
+
+## 1.30.0
+- Allow collecting up to three yummy shields, with a stack count in the HUD.
+
+## 1.29.1
+- Show bonus points with comma thousands separators in the HUD, victory bonus tally and points pickup text.
+
+## 1.29.0
+- Increase shield segment durability to 3 hits from level 100, 4 hits from level 150 and 5 hits from level 200.
+
+## 1.28.1
+- Show scores with comma thousands separators in the HUD, victory tally, high scores and last player summary.
+
+## 1.28.0
+- Add random indestructible shield segments from level 100 onward.
+
 ## 1.27.2
 - Widen the ship's yummy pickup collection radius.
 

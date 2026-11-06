@@ -7,6 +7,8 @@ import 'package:cyclone_game/components/hazards/mine.dart';
 import 'package:cyclone_game/components/enemy/shield_fire_solver.dart';
 import 'package:cyclone_game/components/enemy/shield_player_bounce.dart';
 import 'package:cyclone_game/components/enemy/shield_ring_geometry.dart';
+import 'package:cyclone_game/components/enemy/indestructible_segment_rules.dart';
+import 'package:cyclone_game/components/enemy/segment_durability_rules.dart';
 import 'package:cyclone_game/game/cyclone_game.dart';
 
 enum ShieldSegmentState { healthy, weakened, destroyed }
@@ -68,6 +70,8 @@ class EnemyShield extends PositionComponent with HasGameRef<CycloneGame> {
       spinSpeed: spinSpeed * 0.8,
       clockwise: true,
     );
+    _applySegmentDurability();
+    _rollIndestructibleSegments();
     for (final ring in [yellowRing, orangeRing, redRing]) {
       ring.angularVelocity =
           (ring.clockwise ? 1.0 : -1.0) * ring.spinSpeed * spinMultiplier;
@@ -240,6 +244,29 @@ class EnemyShield extends PositionComponent with HasGameRef<CycloneGame> {
     yellowRing.resetAll();
     orangeRing.resetAll();
     redRing.resetAll();
+    _applySegmentDurability();
+    _rollIndestructibleSegments();
+  }
+
+  void _applySegmentDurability() {
+    final hitsToDestroy = SegmentDurabilityRules.hitsToDestroy(
+      gameRef.gm.currentLevel.value,
+    );
+    for (final ring in rings) {
+      ring.hitsToDestroy = hitsToDestroy;
+    }
+  }
+
+  void _rollIndestructibleSegments() {
+    final segments = IndestructibleSegmentRules.roll(
+      level: gameRef.gm.currentLevel.value,
+      ringCount: rings.length,
+      sides: ShieldRing.sides,
+      random: math.Random(),
+    );
+    for (var i = 0; i < rings.length; i++) {
+      rings[i].setIndestructible(segments[i]);
+    }
   }
 }
 
@@ -277,6 +304,19 @@ class ShieldRing extends PositionComponent {
     sides,
     ShieldSegmentState.healthy,
   );
+  final List<int> _hitCounts = List.filled(sides, 0);
+  final List<bool> _indestructible = List.filled(sides, false);
+
+  int _hitsToDestroy = 2;
+
+  int get hitsToDestroy => _hitsToDestroy;
+
+  set hitsToDestroy(int value) {
+    _hitsToDestroy = value < 1 ? 1 : value;
+  }
+
+  static const Color _indestructibleColor = Color(0xFF9BB7D4);
+  static const Color _indestructibleGlowColor = Color(0xFFDCEBFA);
 
   // Flash timers per segment for impact feedback
   final List<double> _flashTimers = List.filled(sides, 0);
@@ -322,6 +362,18 @@ class ShieldRing extends PositionComponent {
       index < sides &&
       _segments[index] == ShieldSegmentState.destroyed;
 
+  bool isSegmentIndestructible(int index) =>
+      index >= 0 && index < sides && _indestructible[index];
+
+  void setIndestructible(List<bool> segments) {
+    if (segments.length != sides) {
+      throw ArgumentError.value(segments.length, 'segments.length');
+    }
+    for (var i = 0; i < sides; i++) {
+      _indestructible[i] = segments[i];
+    }
+  }
+
   List<bool> get destroyedSegments =>
       List.generate(sides, isSegmentDestroyed, growable: false);
 
@@ -359,24 +411,29 @@ class ShieldRing extends PositionComponent {
     if (index < 0 || index >= sides) return false;
     if (_segments[index] == ShieldSegmentState.destroyed) return false;
     flashSegment(index);
-    final s = _segments[index];
-    if (s == ShieldSegmentState.healthy) {
-      _segments[index] = ShieldSegmentState.weakened;
-    } else if (s == ShieldSegmentState.weakened) {
+    if (_indestructible[index]) return false;
+    _hitCounts[index]++;
+    if (_hitCounts[index] >= hitsToDestroy) {
       _segments[index] = ShieldSegmentState.destroyed;
       _colliders[index].setActive(false);
       // Check full ring destroyed -> regenerate instantly
-      if (_segments.every((e) => e == ShieldSegmentState.destroyed)) {
+      if (_segments.asMap().entries.every(
+        (entry) =>
+            _indestructible[entry.key] ||
+            entry.value == ShieldSegmentState.destroyed,
+      )) {
         resetAll();
       }
       return true;
     }
+    _segments[index] = ShieldSegmentState.weakened;
     return false;
   }
 
   void resetAll() {
     for (int i = 0; i < sides; i++) {
       _segments[i] = ShieldSegmentState.healthy;
+      _hitCounts[i] = 0;
       _colliders[i].setActive(true);
       _flashTimers[i] = 0;
       _flashDurations[i] = 0.12;
@@ -411,8 +468,19 @@ class ShieldRing extends PositionComponent {
       ..strokeWidth = 4
       ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 10);
 
+    final indestructibleGlowPaint = Paint()
+      ..color = _indestructibleGlowColor.withValues(alpha: 0.9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 10);
+
     final strokeHealthy = Paint()
       ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
+
+    final indestructibleStroke = Paint()
+      ..color = _indestructibleColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
 
@@ -443,6 +511,10 @@ class ShieldRing extends PositionComponent {
     for (int i = 0; i < sides; i++) {
       final state = _segments[i];
       if (state == ShieldSegmentState.destroyed) continue; // gap
+      final isIndestructible = _indestructible[i];
+      final segmentGlowColor = isIndestructible
+          ? _indestructibleGlowColor
+          : glowColor;
       final int j = (i + 1) % sides;
 
       // Outer edge points
@@ -466,8 +538,8 @@ class ShieldRing extends PositionComponent {
       final gradient = RadialGradient(
         colors: [
           (state == ShieldSegmentState.weakened
-              ? glowColor.withOpacity(0.22)
-              : glowColor.withOpacity(0.42)),
+              ? segmentGlowColor.withOpacity(0.22)
+              : segmentGlowColor.withOpacity(0.42)),
           Colors.transparent,
         ],
       );
@@ -484,14 +556,22 @@ class ShieldRing extends PositionComponent {
       canvas.drawLine(
         p1o,
         p2o,
-        state == ShieldSegmentState.weakened ? glowWeakened : glowPaint,
+        isIndestructible
+            ? indestructibleGlowPaint
+            : state == ShieldSegmentState.weakened
+            ? glowWeakened
+            : glowPaint,
       );
 
       // 3) Crisp outer stroke
       canvas.drawLine(
         p1o,
         p2o,
-        state == ShieldSegmentState.weakened ? strokeWeakened : strokeHealthy,
+        isIndestructible
+            ? indestructibleStroke
+            : state == ShieldSegmentState.weakened
+            ? strokeWeakened
+            : strokeHealthy,
       );
 
       // 4) Rim highlight slightly inset for a 3D rim-light
@@ -505,7 +585,7 @@ class ShieldRing extends PositionComponent {
       if (ft > 0) {
         final alpha = (ft / _flashDurations[i]).clamp(0.0, 1.0).toDouble();
         final flashGlowPaint = Paint()
-          ..color = glowColor.withValues(alpha: alpha)
+          ..color = segmentGlowColor.withValues(alpha: alpha)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 9
           ..blendMode = BlendMode.plus
@@ -530,6 +610,7 @@ class _ShieldSegmentCollider extends PositionComponent with CollisionCallbacks {
   final ShieldRing ring;
   final int index;
   late _ShieldSegmentHitbox _hitbox;
+  bool _hitboxLoaded = false;
   bool _active = true;
 
   @override
@@ -542,6 +623,7 @@ class _ShieldSegmentCollider extends PositionComponent with CollisionCallbacks {
     // Build points at current angleOffset in local coordinates (absolute units)
     _hitbox = _ShieldSegmentHitbox(_quadForIndex(index, ring.angleOffset))
       ..collisionType = CollisionType.passive;
+    _hitboxLoaded = true;
     add(_hitbox);
   }
 
@@ -584,7 +666,11 @@ class _ShieldSegmentCollider extends PositionComponent with CollisionCallbacks {
 
   void setActive(bool v) {
     _active = v;
-    _hitbox.collisionType = v ? CollisionType.passive : CollisionType.inactive;
+    if (_hitboxLoaded) {
+      _hitbox.collisionType = v
+          ? CollisionType.passive
+          : CollisionType.inactive;
+    }
   }
 
   @override

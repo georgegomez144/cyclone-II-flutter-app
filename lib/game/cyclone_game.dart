@@ -135,7 +135,19 @@ class CycloneGame extends FlameGame
       _inUpdateTree = false;
     }
     if (!isPlaying) return;
-    if (_levelTransitioning) return;
+    if (_levelTransitioning) {
+      if (!_mineChallengeActive) {
+        _pickupSpawnTimer += dt;
+        final pickupInterval = PickupSpawnRules.intervalForLevel(
+          gm.currentLevel.value,
+        );
+        if (_pickupSpawnTimer >= pickupInterval) {
+          _pickupSpawnTimer = 0;
+          _maybeSpawnPickup();
+        }
+      }
+      return;
+    }
 
     // Tick timed Triple+Auto weapon override and auto-revert when finished
     gm.tickTripleAuto(
@@ -1004,8 +1016,11 @@ class CycloneGame extends FlameGame
     if (level > 9 && !_mineChallengePending && !_mineChallengeActive) {
       allowed.add(() => MineChallengeYummy());
     }
-    // FlareYummy after level > 14
-    if (level > 14) {
+    // FlareYummy after level > 14, except during victory transitions.
+    if (PickupSpawnRules.canSpawnFlare(
+      level: level,
+      levelTransitioning: _levelTransitioning,
+    )) {
       allowed.add(() => FlareYummy());
     }
 

@@ -37,9 +37,12 @@ class ShieldMeter extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  '${value.toStringAsFixed(0)}%',
-                  style: TextStyle(color: color),
+                ValueListenableBuilder<int>(
+                  valueListenable: gameManager.playerShieldCount,
+                  builder: (context, shieldCount, _) => Text(
+                    '${value.toStringAsFixed(0)}%${hasPlayerShield && shieldCount > 1 ? ' x$shieldCount' : ''}',
+                    style: TextStyle(color: color),
+                  ),
                 ),
               ],
             ),

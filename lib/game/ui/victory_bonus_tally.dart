@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cyclone_game/game/bonus_tally.dart';
+import 'package:cyclone_game/game/number_format.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
@@ -25,7 +26,7 @@ class VictoryBonusTally extends PositionComponent {
       );
     }
     _bonusText = TextComponent(
-      text: 'Bonus: ${_tally.remaining}',
+      text: 'Bonus: ${formatWithCommas(_tally.remaining)}',
       anchor: Anchor.center,
       position: Vector2(0, -12),
       textRenderer: TextPaint(
@@ -37,7 +38,7 @@ class VictoryBonusTally extends PositionComponent {
       ),
     );
     _summaryText = TextComponent(
-      text: 'Score: $score   Ships: $lives',
+      text: 'Score: ${formatWithCommas(score)}   Ships: $lives',
       anchor: Anchor.center,
       position: Vector2(0, 20),
       textRenderer: TextPaint(
@@ -99,8 +100,8 @@ class VictoryBonusTally extends PositionComponent {
   }
 
   void _updateText() {
-    _bonusText.text = 'Bonus: ${_tally.remaining}';
-    _summaryText.text = 'Score: $_score   Ships: $_lives';
+    _bonusText.text = 'Bonus: ${formatWithCommas(_tally.remaining)}';
+    _summaryText.text = 'Score: ${formatWithCommas(_score)}   Ships: $_lives';
   }
 
   void _complete() {
