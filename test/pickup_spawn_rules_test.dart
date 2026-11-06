@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cyclone_game/game/pickup_spawn_rules.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -51,6 +53,40 @@ void main() {
 
     test('treats levels below 1 as level 1', () {
       expect(PickupSpawnRules.intervalForLevel(0), closeTo(10.0 / 1.10, 0.001));
+    });
+
+    test('hazards destroy yummies starting at level 150', () {
+      expect(PickupSpawnRules.hazardsDestroyYummies(149), isFalse);
+      expect(PickupSpawnRules.hazardsDestroyYummies(150), isTrue);
+    });
+
+    test('keeps spawn intervals unchanged through level 149', () {
+      final random = math.Random(1);
+      expect(
+        PickupSpawnRules.nextInterval(149, random),
+        PickupSpawnRules.intervalForLevel(149),
+      );
+    });
+
+    test('randomizes faster spawn intervals from level 150', () {
+      const sampleCount = 1000;
+      final baseInterval = PickupSpawnRules.intervalForLevel(150);
+      final random = math.Random(1);
+      var intervalSum = 0.0;
+
+      for (var i = 0; i < sampleCount; i++) {
+        final interval = PickupSpawnRules.nextInterval(150, random);
+        expect(interval, greaterThanOrEqualTo(baseInterval * 0.25));
+        expect(interval, lessThanOrEqualTo(baseInterval * 0.75));
+        intervalSum += interval;
+      }
+
+      expect(intervalSum / sampleCount, lessThan(baseInterval));
+    });
+
+    test('increases concurrent pickup cap starting at level 150', () {
+      expect(PickupSpawnRules.maxConcurrent(149), 2);
+      expect(PickupSpawnRules.maxConcurrent(150), 4);
     });
   });
 }

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.31.0
+- From level 150, allow mines and castle blasts to destroy yummies, spawn them more frequently at randomized intervals, and raise the concurrent pickup cap to four.
+
 ## 1.30.1
 - Continue spawning yummy pickups during the victory bonus tally.
 

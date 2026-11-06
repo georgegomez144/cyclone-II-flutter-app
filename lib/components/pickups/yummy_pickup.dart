@@ -4,6 +4,7 @@ import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/game/game_manager.dart';
 import 'package:cyclone_game/game/number_format.dart';
 import 'package:cyclone_game/game/pickup_collect_rules.dart';
+import 'package:cyclone_game/game/pickup_spawn_rules.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -126,9 +127,12 @@ abstract class YummyPickup extends SpriteComponent
     if (other == gameRef.player) {
       collectByPlayer();
     } else {
-      // In frustrating mode, enemy blasts and mines can destroy yummies
+      // Enemy blasts and mines can destroy yummies on frustrating difficulty
+      // or after level 149.
       final diff = gameRef.gm.difficulty.value;
-      if (diff == Difficulty.frustrating &&
+      final level = gameRef.gm.currentLevel.value;
+      if ((diff == Difficulty.frustrating ||
+              PickupSpawnRules.hazardsDestroyYummies(level)) &&
           (other is EnemyBlast || other is SparkMine)) {
         // SFX: yummy destroyed
         AudioManager.instance.playYummyDiscard();

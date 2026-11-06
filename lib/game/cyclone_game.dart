@@ -95,6 +95,7 @@ class CycloneGame extends FlameGame
 
   // Spawner timers
   double _pickupSpawnTimer = 0;
+  double? _pickupInterval;
   double _mineSpawnTimer = 0;
   // Auto-fire timer for TripleAutoYummy to ensure hands-free firing
   double _tripleAutoFireTimer = 0;
@@ -138,12 +139,12 @@ class CycloneGame extends FlameGame
     if (_levelTransitioning) {
       if (!_mineChallengeActive) {
         _pickupSpawnTimer += dt;
-        final pickupInterval = PickupSpawnRules.intervalForLevel(
-          gm.currentLevel.value,
-        );
+        final pickupInterval = _pickupInterval ??=
+            PickupSpawnRules.nextInterval(gm.currentLevel.value, math.Random());
         if (_pickupSpawnTimer >= pickupInterval) {
           _pickupSpawnTimer = 0;
           _maybeSpawnPickup();
+          _pickupInterval = null;
         }
       }
       return;
@@ -177,12 +178,14 @@ class CycloneGame extends FlameGame
     }
 
     // Spawn yummy pickups more frequently as the player levels up
-    final pickupInterval = PickupSpawnRules.intervalForLevel(
+    final pickupInterval = _pickupInterval ??= PickupSpawnRules.nextInterval(
       gm.currentLevel.value,
+      math.Random(),
     );
     if (_pickupSpawnTimer >= pickupInterval) {
       _pickupSpawnTimer = 0;
       _maybeSpawnPickup();
+      _pickupInterval = null;
     }
 
     // Spawn mines every 3 seconds up to cap
@@ -987,12 +990,11 @@ class CycloneGame extends FlameGame
   void _maybeSpawnPickup() {
     if (_mineChallengeActive) return;
 
-    // Do not spam: limit concurrent pickups to 2
+    final level = gm.currentLevel.value;
     final current = children.whereType<YummyPickup>().length;
-    if (current >= 2) return;
+    if (current >= PickupSpawnRules.maxConcurrent(level)) return;
 
     final rnd = math.Random();
-    final level = gm.currentLevel.value;
 
     // Build allowed pickup constructors based on level gating
     final List<YummyPickup Function()> allowed = [
