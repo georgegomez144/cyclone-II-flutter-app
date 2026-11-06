@@ -225,6 +225,7 @@ class _HudOverlayState extends State<HudOverlay> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
+                            spacing: 12,
                             children: hudPills,
                           ),
                         )

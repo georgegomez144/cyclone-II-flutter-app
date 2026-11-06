@@ -5,9 +5,11 @@ import 'package:cyclone_game/components/enemy/enemy_sprite.dart';
 import 'package:cyclone_game/components/enemy/enemy_core.dart';
 import 'package:cyclone_game/components/enemy/enemy_blast.dart';
 import 'package:cyclone_game/components/enemy/enemy_main_shot.dart';
-import 'package:cyclone_game/components/effects/castle_explosion.dart';
+import 'package:cyclone_game/components/effects/castle_destruction.dart';
+import 'package:cyclone_game/components/effects/castle_ring_piece.dart';
 import 'package:cyclone_game/components/effects/explosion.dart';
 import 'package:cyclone_game/components/effects/electric_shield.dart';
+import 'package:cyclone_game/components/effects/mine_chain_detonation.dart';
 import 'package:cyclone_game/components/player/player.dart';
 import 'package:cyclone_game/components/player/player_bullet.dart';
 import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
@@ -16,6 +18,7 @@ import 'package:cyclone_game/components/hazards/mine.dart';
 import 'package:cyclone_game/components/hazards/challenge_mine.dart';
 import 'package:cyclone_game/game/mine_challenge/mine_challenge_controller.dart';
 import 'package:cyclone_game/game/mine_challenge/mine_challenge_rules.dart';
+import 'package:cyclone_game/game/pickup_spawn_rules.dart';
 import 'package:cyclone_game/game/ui/victory_bonus_tally.dart';
 import 'package:cyclone_game/game/game_manager.dart';
 import 'package:cyclone_game/game/world/starfield.dart';
@@ -161,8 +164,10 @@ class CycloneGame extends FlameGame
       }
     }
 
-    // Spawn yummy pickups every 8–14 seconds randomly
-    final pickupInterval = 10.0; // base
+    // Spawn yummy pickups more frequently as the player levels up
+    final pickupInterval = PickupSpawnRules.intervalForLevel(
+      gm.currentLevel.value,
+    );
     if (_pickupSpawnTimer >= pickupInterval) {
       _pickupSpawnTimer = 0;
       _maybeSpawnPickup();
@@ -353,18 +358,28 @@ class CycloneGame extends FlameGame
     // Remove current enemy safely if present, with SFX and explosion
     if (enemy != null && enemy!.isMounted) {
       final e = enemy!;
+      _detonateSparkMines(e.position);
       AudioManager.instance.playEnemyExplode();
       final maxRadius =
           e.shield?.redRadius ?? e.size.x * (isPhone ? 1 : 1.3) * 1.35 * 1.25;
-      final boom = CastleExplosion(maxRadius: maxRadius, duration: 0.9)
-        ..position = e.position.clone()
-        ..priority = 999;
-      add(boom);
+      final destruction =
+          CastleDestruction(
+              rings: _snapshotCastleRings(e),
+              shipSprite: e.sprite,
+              shipSize: e.size,
+              shipAngle: e.angle,
+              maxRadius: maxRadius,
+              onShipExploded: () {
+                AudioManager.instance.playEnemyExplode();
+                if (isPlaying) unawaited(_completeVictoryAndAdvance());
+              },
+            )
+            ..position = e.position.clone()
+            ..priority = 999;
+      add(destruction);
       e.removeFromParent();
     }
     enemy = null;
-
-    await _completeVictoryAndAdvance();
   }
 
   Future<void> flareVictoryExplosionThenWin() async {
@@ -372,18 +387,11 @@ class CycloneGame extends FlameGame
     if (_levelTransitioning) return;
     _levelTransitioning = true;
 
-    // 1) Mines explode
-    final mines = children.whereType<SparkMine>().toList(growable: false);
-    for (final m in mines) {
-      final ex = Explosion(maxRadius: 26, duration: 0.35)
-        ..position = m.position.clone();
-      add(ex);
-      AudioManager.instance.playMineExplode();
-      m.removeFromParent();
-    }
+    // 1) Mines explode nearest to the castle first.
+    final e = enemy;
+    _detonateSparkMines(e?.position ?? size / 2);
 
     // 2) Enemy rings electric flash + ship explosion
-    final e = enemy;
     if (e != null && e.isMounted) {
       // Approximate shield radii as in EnemySprite
       final double rYellow = e.size.x * (isPhone ? 1 : 1.3);
@@ -405,10 +413,18 @@ class CycloneGame extends FlameGame
         );
       }
       AudioManager.instance.playEnemyExplode();
-      final boom = CastleExplosion(maxRadius: rRed, duration: 0.9)
-        ..position = e.position.clone()
-        ..priority = 999;
-      add(boom);
+      final destruction =
+          CastleDestruction(
+              rings: _snapshotCastleRings(e),
+              shipSprite: e.sprite,
+              shipSize: e.size,
+              shipAngle: e.angle,
+              maxRadius: rRed,
+              onShipExploded: AudioManager.instance.playEnemyExplode,
+            )
+            ..position = e.position.clone()
+            ..priority = 999;
+      add(destruction);
       e.removeFromParent();
       enemy = null;
     }
@@ -419,10 +435,53 @@ class CycloneGame extends FlameGame
         period: 3.0,
         removeOnFinish: true,
         onTick: () async {
-          await _completeVictoryAndAdvance();
+          if (isPlaying) await _completeVictoryAndAdvance();
         },
       ),
     );
+  }
+
+  void _detonateSparkMines(Vector2 origin) {
+    final mines = children.whereType<SparkMine>().toList()
+      ..sort(
+        (a, b) => a.position
+            .distanceToSquared(origin)
+            .compareTo(b.position.distanceToSquared(origin)),
+      );
+    if (mines.isEmpty) return;
+
+    for (final mine in mines) {
+      mine.prime();
+    }
+
+    add(
+      MineChainDetonation(
+        count: mines.length,
+        interval: math.min(0.15, 1.5 / mines.length),
+        onDetonate: (index) {
+          final mine = mines[index];
+          if (mine.isMounted && !mine.isRemoving) mine.detonate();
+        },
+      ),
+    );
+  }
+
+  List<CastleRingSnapshot> _snapshotCastleRings(EnemySprite enemy) {
+    final shield = enemy.shield;
+    if (shield == null) return const [];
+
+    return [shield.redRing, shield.orangeRing, shield.yellowRing]
+        .map(
+          (ring) => CastleRingSnapshot(
+            outerRadius: ring.outerRadius,
+            angleOffset: ring.angleOffset,
+            angularVelocity: ring.angularVelocity,
+            color: ring.color,
+            glowColor: ring.glowColor,
+            destroyedSegments: ring.destroyedSegments,
+          ),
+        )
+        .toList(growable: false);
   }
 
   Future<void> _completeVictoryAndAdvance() async {

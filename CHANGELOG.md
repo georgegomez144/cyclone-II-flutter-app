@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.27.2
+- Widen the ship's yummy pickup collection radius.
+
+## 1.27.1
+- Spawn yummy pickups 10% more frequently, increasing frequency by another 2% every 10 levels.
+
+## 1.27.0
+- Freeze active spark mines harmlessly and detonate them one at a time, nearest to the destroyed castle first.
+
+## 1.26.0
+- Animate intact castle shield segments flying apart one at a time while the ship flickers and slowly explodes.
+
 ## 1.25.2
 - Remove greenish yellow tones from the castle explosion and soften its rings with lighter, blurred warm glows.
 

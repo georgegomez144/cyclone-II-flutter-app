@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/game/game_manager.dart';
+import 'package:cyclone_game/game/pickup_collect_rules.dart';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +27,7 @@ abstract class YummyPickup extends SpriteComponent
 
   // Animation state
   double _t = 0; // time accumulator for bobbing and flip
+  bool _collected = false;
 
   // Gentle drift velocity across the screen
   Vector2 _vel = Vector2.zero();
@@ -99,6 +101,19 @@ abstract class YummyPickup extends SpriteComponent
       0.7 + 0.3 * flip.abs(),
       0.7 + 0.15 * math.cos(_t * 3.0).abs(),
     );
+
+    final player = gameRef.player;
+    if (!isRemoving &&
+        player.isMounted &&
+        player.isAlive &&
+        PickupCollectRules.canShipCollect(
+          player.position,
+          position,
+          player.size.x,
+          size.x,
+        )) {
+      collectByPlayer();
+    }
   }
 
   @override
@@ -108,12 +123,7 @@ abstract class YummyPickup extends SpriteComponent
   ) {
     super.onCollisionStart(intersectionPoints, other);
     if (other == gameRef.player) {
-      // SFX: pickup collected
-      AudioManager.instance.playYummyPickup();
-      applyEffect(gameRef.gm);
-      // Small floating text feedback
-      _spawnFloatingText();
-      removeFromParent();
+      collectByPlayer();
     } else {
       // In frustrating mode, enemy blasts and mines can destroy yummies
       final diff = gameRef.gm.difficulty.value;
@@ -124,6 +134,26 @@ abstract class YummyPickup extends SpriteComponent
         removeFromParent();
       }
     }
+  }
+
+  bool _beginCollection() {
+    final player = gameRef.player;
+    if (_collected || isRemoving || !player.isMounted || !player.isAlive) {
+      return false;
+    }
+    _collected = true;
+    return true;
+  }
+
+  void collectByPlayer() {
+    if (!_beginCollection()) return;
+
+    // SFX: pickup collected
+    AudioManager.instance.playYummyPickup();
+    applyEffect(gameRef.gm);
+    // Small floating text feedback
+    _spawnFloatingText();
+    removeFromParent();
   }
 
   void _spawnFloatingText() {
@@ -214,41 +244,36 @@ class LifeYummy extends YummyPickup {
   }
 
   @override
-  void onCollisionStart(
-    Set<Vector2> intersectionPoints,
-    PositionComponent other,
-  ) {
-    // Do NOT call super here, to avoid the default text and double-callback.
-    if (other == gameRef.player) {
-      // Apply life gain with cap
-      applyEffect(gameRef.gm);
-      // Custom floating text
-      final comp = TextComponent(
-        text: '+1 Ship',
-        anchor: Anchor.center,
-        position: position.clone(),
-        priority: 2000,
-        textRenderer: TextPaint(
-          style: const TextStyle(
-            color: Colors.lightGreenAccent,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+  void collectByPlayer() {
+    if (!_beginCollection()) return;
+
+    // Apply life gain with cap
+    applyEffect(gameRef.gm);
+    // Custom floating text
+    final comp = TextComponent(
+      text: '+1 Ship',
+      anchor: Anchor.center,
+      position: position.clone(),
+      priority: 2000,
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          color: Colors.lightGreenAccent,
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
         ),
-      );
-      gameRef.add(comp);
-      gameRef.add(
-        TimerComponent(
-          period: 0.9,
-          removeOnFinish: true,
-          onTick: () {
-            comp.removeFromParent();
-          },
-        ),
-      );
-      // Remove pickup
-      removeFromParent();
-    }
+      ),
+    );
+    gameRef.add(comp);
+    gameRef.add(
+      TimerComponent(
+        period: 0.9,
+        removeOnFinish: true,
+        onTick: () {
+          comp.removeFromParent();
+        },
+      ),
+    );
+    removeFromParent();
   }
 }
 

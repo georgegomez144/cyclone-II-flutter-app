@@ -31,6 +31,23 @@ class SparkMine extends SpriteComponent
   final double shipHitRadius = 12; // reduced with size
   Vector2 _velocity = Vector2.zero();
   ShieldRing? _orbitRing;
+  bool _isPrimed = false;
+  bool _isDetonated = false;
+
+  void prime() {
+    _isPrimed = true;
+    _velocity = Vector2.zero();
+    _orbitRing = null;
+  }
+
+  void detonate() {
+    if (_isDetonated) return;
+    _isDetonated = true;
+    AudioManager.instance.playMineExplode();
+    gameRef.add(_SparkEffect()..position = position.clone());
+    gameRef.add(MineExplosionSparks()..position = position.clone());
+    removeFromParent();
+  }
 
   @override
   Future<void> onLoad() async {
@@ -81,6 +98,12 @@ class SparkMine extends SpriteComponent
   void update(double dt) {
     super.update(dt);
     if (dt <= 0) return;
+
+    // Primed mines freeze in place and cannot damage the player, but keep spinning.
+    if (_isPrimed) {
+      angle += kMineSpinSpeed * dt;
+      return;
+    }
 
     // Difficulty multipliers
     final diff = gameRef.gm.difficulty.value;
@@ -199,6 +222,7 @@ class SparkMine extends SpriteComponent
   }
 
   void _checkHitPlayer() {
+    if (_isPrimed) return;
     final player = gameRef.player;
     if (!player.isMounted) return;
     final d = position.distanceTo(player.position);
