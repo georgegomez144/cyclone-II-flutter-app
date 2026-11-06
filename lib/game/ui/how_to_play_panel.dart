@@ -124,6 +124,15 @@ class HowToPlayContent extends StatelessWidget {
             ),
             SizedBox(height: 10),
             _SpriteRow(
+              label: 'Mine Challenge',
+              assetPath: 'lib/assets/yummy_sprite.png',
+              colorTint: Color(0xFFE040FB),
+              description:
+                  'Available after level 9. After your next win, dodge or destroy 20 incoming mines for a 2000-point bonus.',
+              animate: _Anim.wiggle,
+            ),
+            SizedBox(height: 10),
+            _SpriteRow(
               label: 'Triple Auto (Timed)',
               assetPath: 'lib/assets/yummy_sprite.png',
               colorTint: Color(0xFF00E5FF),

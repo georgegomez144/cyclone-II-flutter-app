@@ -5,6 +5,7 @@ import 'package:cyclone_game/game/cyclone_game.dart';
 import 'package:cyclone_game/components/enemy/shield_fire_solver.dart';
 import 'package:cyclone_game/components/player/player_bullet_sweep.dart';
 import 'package:cyclone_game/components/effects/explosion.dart';
+import 'package:cyclone_game/components/effects/shield_segment_sparks.dart';
 import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
 import 'package:cyclone_game/game/audio_manager.dart';
 
@@ -79,7 +80,16 @@ class PlayerBullet extends PositionComponent
             activeShield.orangeRing,
             activeShield.yellowRing,
           ][hit.ringIndex!];
-          ring.hitSegment(hit.segmentIndex!);
+          final endpoints = ring.segmentEndpoints(hit.segmentIndex!);
+          if (ring.hitSegment(hit.segmentIndex!)) {
+            gameRef.add(
+              ShieldSegmentSparks(
+                start: endpoints[0],
+                end: endpoints[1],
+                glowColor: ring.glowColor,
+              )..position = enemy.position.clone(),
+            );
+          }
           gameRef.gm.addScore(5);
         }
         removeFromParent();

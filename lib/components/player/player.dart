@@ -50,6 +50,7 @@ class Player extends PositionComponent
     _joyMove = Vector2.zero();
     _joyMoveSmoothed = Vector2.zero();
     _isMoving = false;
+    _showStationarySprite();
     _turnAxis = 0.0;
     _thrustHeld = false;
 
@@ -133,6 +134,7 @@ class Player extends PositionComponent
   double _turnAxis = 0.0; // -1 left, +1 right
   bool _thrustHeld = false; // ArrowUp
   final double turnSpeed = 3.2; // rad/sec
+  static const double mineChallengeTurnMultiplier = 1.1;
   // If Lock Yummy was active at death, clear the lock after the next revive
   bool _clearKeepYummiesAfterRevive = false;
 
@@ -144,6 +146,7 @@ class Player extends PositionComponent
   ElectricShield? _electricShield;
 
   void _refreshShieldGlow() {
+    gm.playerShield.value = oneHitShieldActive ? oneHitShieldStrength : 0;
     // Ensure both glow and electric effect reflect the active state
     if (oneHitShieldActive) {
       final strengthRatio = (oneHitShieldStrength / 100).clamp(0.0, 1.0);
@@ -218,6 +221,24 @@ class Player extends PositionComponent
   final double bulletCooldown = 0.03; // seconds
 
   Vector2 get velocity => _velocity.clone();
+
+  void _showStationarySprite() {
+    if (!isLoaded || _spriteStationary == null) return;
+    _spriteComp
+      ..sprite = _spriteStationary
+      ..size = size.clone();
+  }
+
+  void stopMotion() {
+    _velocity.setZero();
+    _keyMove.setZero();
+    _joyMove.setZero();
+    _joyMoveSmoothed.setZero();
+    _turnAxis = 0;
+    _thrustHeld = false;
+    _isMoving = false;
+    _showStationarySprite();
+  }
 
   void bounceOff(Vector2 normal, {Vector2? surfaceVelocity}) {
     final unitNormal = normal.normalized();
@@ -323,7 +344,10 @@ class Player extends PositionComponent
     // Orientation
     if (isMacOrWeb) {
       // macOS/web: manual rotation via Left/Right keys
-      angle += _turnAxis * turnSpeed * dt;
+      final turnMultiplier = gameRef.isMineChallengeActive
+          ? mineChallengeTurnMultiplier
+          : 1.0;
+      angle += _turnAxis * turnSpeed * turnMultiplier * dt;
     } else {
       // Default: face movement/ input
       if (_velocity.length2 > 1e-2) {
@@ -339,7 +363,7 @@ class Player extends PositionComponent
     // Allows continuous fire for both single and triple modes when enabled.
     final bool holdingFire = _uiFireHeld || _kbFireHeld;
     if (hasContinuousFire && holdingFire) {
-      tryFire();
+      tryFire(autoFire: true);
     }
 
     // Update moving visual state based on INPUT (not velocity):
@@ -443,23 +467,25 @@ class Player extends PositionComponent
   }
 
   // Fire a single shot forward from the tip
-  void tryFire() {
+  void tryFire({bool autoFire = false}) {
     if (!canFire) return;
 
-    // Throttle using shared cooldown and capacity
-    // Capacity caps by mode
+    final mineChallenge = gameRef.isMineChallengeActive;
     const int tripleCap =
         18; // allow up to 18 bullets on-screen for triple spread
-    if (hasTripleSpread) {
-      if (_activeBullets >= tripleCap) return;
-    } else if (hasContinuousFire) {
-      if (_activeBullets >= 20) return;
-    } else {
-      if (_activeBullets >= maxSimultaneousBullets) return;
+    if (!mineChallenge) {
+      // Capacity caps by mode
+      if (hasTripleSpread) {
+        if (_activeBullets >= tripleCap) return;
+      } else if (hasContinuousFire) {
+        if (_activeBullets >= 20) return;
+      } else {
+        if (_activeBullets >= maxSimultaneousBullets) return;
+      }
     }
-    if (_cooldown > 0) return;
+    if (_cooldown > 0 && !(mineChallenge && !autoFire)) return;
 
-    _cooldown = bulletCooldown; // 100 ms between shots for all modes
+    _cooldown = mineChallenge && !autoFire ? 0 : bulletCooldown;
 
     // SFX for firing (once per trigger press)
     AudioManager.instance.playPlayerShot();
@@ -476,7 +502,7 @@ class Player extends PositionComponent
         baseDir.clone()..rotate(spreadRad),
       ];
       for (final d in dirs) {
-        if (_activeBullets >= tripleCap) break;
+        if (!mineChallenge && _activeBullets >= tripleCap) break;
         _spawnBullet(d, offsetAlongNose: 0);
       }
     } else {

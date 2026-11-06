@@ -1,15 +1,21 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cyclone_game/components/enemy/enemy_sprite.dart';
 import 'package:cyclone_game/components/enemy/enemy_core.dart';
 import 'package:cyclone_game/components/enemy/enemy_blast.dart';
 import 'package:cyclone_game/components/enemy/enemy_main_shot.dart';
+import 'package:cyclone_game/components/effects/castle_explosion.dart';
 import 'package:cyclone_game/components/effects/explosion.dart';
 import 'package:cyclone_game/components/effects/electric_shield.dart';
 import 'package:cyclone_game/components/player/player.dart';
 import 'package:cyclone_game/components/player/player_bullet.dart';
 import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
+import 'package:cyclone_game/components/pickups/mine_challenge_yummy.dart';
 import 'package:cyclone_game/components/hazards/mine.dart';
+import 'package:cyclone_game/components/hazards/challenge_mine.dart';
+import 'package:cyclone_game/game/mine_challenge/mine_challenge_controller.dart';
+import 'package:cyclone_game/game/mine_challenge/mine_challenge_rules.dart';
 import 'package:cyclone_game/game/ui/victory_bonus_tally.dart';
 import 'package:cyclone_game/game/game_manager.dart';
 import 'package:cyclone_game/game/world/starfield.dart';
@@ -62,11 +68,18 @@ class CycloneGame extends FlameGame
   bool _levelTransitioning = false;
   bool get isLevelTransitioning => _levelTransitioning;
   bool _isRespawning = false;
+  bool _mineChallengePending = false;
+  bool _mineChallengeActive = false;
+  bool _standaloneMineChallenge = false;
+  bool get isMineChallengeActive => _mineChallengeActive;
+  MineChallengeController? _mineChallengeController;
+  TimerComponent? _respawnTimer;
   TextComponent? _gameOverBanner;
   TextComponent? _victoryBanner;
   VictoryBonusTally? _bonusTally;
   TimerComponent? _victoryTransitionTimer;
   bool _submittedThisRun = false;
+  bool _inUpdateTree = false;
 
   @override
   void onRemove() {
@@ -88,9 +101,36 @@ class CycloneGame extends FlameGame
   @override
   Color backgroundColor() => const Color(0xFF000000);
 
+  Future<void> _ensurePlayerMounted() async {
+    if (player.isRemoving) {
+      if (_inUpdateTree) {
+        await Future<void>.microtask(() {});
+      }
+    }
+    if (player.isRemoving) {
+      processLifecycleEvents();
+    }
+    if (!player.isMounted) {
+      await add(player);
+    }
+  }
+
+  void _processLifecycleEventsSafely() {
+    if (_inUpdateTree) {
+      scheduleMicrotask(processLifecycleEvents);
+    } else {
+      processLifecycleEvents();
+    }
+  }
+
   @override
   void update(double dt) {
-    super.update(dt);
+    _inUpdateTree = true;
+    try {
+      super.update(dt);
+    } finally {
+      _inUpdateTree = false;
+    }
     if (!isPlaying) return;
     if (_levelTransitioning) return;
 
@@ -103,6 +143,9 @@ class CycloneGame extends FlameGame
         player.hasTripleSpread = gm.prevHasTriple;
       },
     );
+
+    // The challenge owns its spawning and does not drain the regular level bonus.
+    if (_mineChallengeActive) return;
 
     // Timed spawns for pickups and mines while playing
     _pickupSpawnTimer += dt;
@@ -179,6 +222,9 @@ class CycloneGame extends FlameGame
 
   void startGame() {
     _submittedThisRun = false;
+    _clearMineChallenge();
+    _standaloneMineChallenge = false;
+    _cancelRespawnTimer();
     _bonusTally?.removeFromParent();
     _bonusTally = null;
     _victoryBanner?.removeFromParent();
@@ -215,9 +261,7 @@ class CycloneGame extends FlameGame
 
     // Ensure player exists with pristine state and is mounted
     player.resetForNewGame();
-    if (!player.isMounted) {
-      add(player);
-    }
+    _ensurePlayerMounted();
     player.revive();
     player.position = _randomSafeSpawn();
 
@@ -241,6 +285,54 @@ class CycloneGame extends FlameGame
     resumeGame();
   }
 
+  Future<void> startMineChallengeGame() async {
+    _clearMineChallenge();
+    _standaloneMineChallenge = true;
+    _submittedThisRun = true;
+    _cancelRespawnTimer();
+    _bonusTally?.removeFromParent();
+    _bonusTally = null;
+    _victoryBanner?.removeFromParent();
+    _victoryBanner = null;
+    _victoryTransitionTimer?.removeFromParent();
+    _victoryTransitionTimer = null;
+    isStartupDemo = false;
+    children.whereType<_BlackFade>().forEach((c) => c.removeFromParent());
+    children.whereType<_LogoSplash>().forEach((c) => c.removeFromParent());
+
+    gm.resetForNewGame();
+    gm.levelBonus.value = 5000;
+    _bonusTickAccum = 0;
+    _levelTransitioning = true;
+    _isRespawning = false;
+    isPlaying = true;
+    _pickupSpawnTimer = 0;
+    _mineSpawnTimer = 0;
+    _tripleAutoFireTimer = 0;
+
+    _gameOverBanner?.removeFromParent();
+    _gameOverBanner = null;
+    _removeAllEnemies();
+    _removeAllProjectiles();
+    player.resetForNewGame();
+
+    overlays.remove('home');
+    overlays.remove('instructions');
+    overlays.add('controls');
+
+    AudioManager.instance.playBegin();
+    // ignore: discarded_futures
+    AudioManager.instance.playBackgroundHum(volume: 0.22);
+    resumeGame();
+
+    await _ensurePlayerMounted();
+    player.revive();
+    player.position = size / 2;
+    player.stopMotion();
+    _mineChallengePending = true;
+    _startMineChallenge();
+  }
+
   Future<void> _spawnEnemy() async {
     // Strong singleton guarantee: remove ALL enemy instances before spawning
     _removeAllEnemies();
@@ -260,12 +352,15 @@ class CycloneGame extends FlameGame
 
     // Remove current enemy safely if present, with SFX and explosion
     if (enemy != null && enemy!.isMounted) {
+      final e = enemy!;
       AudioManager.instance.playEnemyExplode();
-      // Visual boom at center
-      final boom = Explosion(maxRadius: 64, duration: 0.6)
-        ..position = (enemy!.position.clone());
+      final maxRadius =
+          e.shield?.redRadius ?? e.size.x * (isPhone ? 1 : 1.3) * 1.35 * 1.25;
+      final boom = CastleExplosion(maxRadius: maxRadius, duration: 0.9)
+        ..position = e.position.clone()
+        ..priority = 999;
       add(boom);
-      enemy!.removeFromParent();
+      e.removeFromParent();
     }
     enemy = null;
 
@@ -310,8 +405,9 @@ class CycloneGame extends FlameGame
         );
       }
       AudioManager.instance.playEnemyExplode();
-      final boom = Explosion(maxRadius: 72, duration: 0.7)
-        ..position = e.position.clone();
+      final boom = CastleExplosion(maxRadius: rRed, duration: 0.9)
+        ..position = e.position.clone()
+        ..priority = 999;
       add(boom);
       e.removeFromParent();
       enemy = null;
@@ -392,15 +488,156 @@ class CycloneGame extends FlameGame
         _victoryBanner = null;
         _bonusTally?.removeFromParent();
         _bonusTally = null;
-        await _spawnEnemy();
-        // Reset next level's bonus countdown and accumulator
-        gm.levelBonus.value = 5000;
-        _bonusTickAccum = 0;
-        _levelTransitioning = false;
+        if (_mineChallengePending) {
+          _startMineChallenge();
+        } else {
+          await _resumeNextRound();
+        }
       },
     );
     _victoryTransitionTimer = timer;
     add(timer);
+  }
+
+  void queueMineChallenge() {
+    if (!isPlaying || _mineChallengePending || _mineChallengeActive) return;
+    _mineChallengePending = true;
+  }
+
+  void _startMineChallenge() {
+    if (!isPlaying || !_mineChallengePending || _mineChallengeActive) return;
+    _mineChallengePending = false;
+    _mineChallengeActive = true;
+    overlays.remove('hud');
+    _pickupSpawnTimer = 0;
+    _levelTransitioning = false;
+    _cancelRespawnTimer();
+    _removeAllProjectiles();
+
+    _ensurePlayerMounted();
+    player.revive();
+    player.position = size / 2;
+    player.stopMotion();
+
+    final controller = MineChallengeController(
+      onFinished: _onMineChallengeFinished,
+    );
+    _mineChallengeController = controller;
+    add(controller);
+  }
+
+  void _onMineChallengeFinished(bool won) {
+    if (!_mineChallengeActive || !isPlaying) return;
+    _mineChallengeActive = false;
+    _mineChallengeController?.removeFromParent();
+    _mineChallengeController = null;
+    _levelTransitioning = true;
+
+    final center = size / 2;
+    if (!won) {
+      AudioManager.instance.playPlayerExplode();
+      final boom = Explosion(maxRadius: 64, duration: 0.6)
+        ..position = player.position.clone();
+      add(boom);
+      player.kill();
+      if (player.isMounted) player.removeFromParent();
+    }
+
+    final banner = TextComponent(
+      text: won ? 'Mine Challenge Won!' : 'Challenge Failed\nNo Bonus',
+      anchor: Anchor.center,
+      position: Vector2(center.x, center.y - 56),
+      priority: 1000,
+      textRenderer: TextPaint(
+        style: TextStyle(
+          color: won ? Colors.amber : Colors.orangeAccent,
+          fontSize: won ? 38 : 36,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+    _victoryBanner = banner;
+    add(banner);
+
+    if (won) {
+      final tally =
+          VictoryBonusTally(
+              total: MineChallengeRules.bonusPoints,
+              duration: 2.5,
+              startDelay: 0.35,
+              score: gm.score.value,
+              lives: gm.lives.value,
+              onAddScore: (points) => gm.addScore(points),
+              onComplete: _scheduleMineChallengeResume,
+            )
+            ..position = Vector2(center.x, center.y + 2)
+            ..priority = 1000;
+      _bonusTally = tally;
+      add(tally);
+    } else {
+      _scheduleMineChallengeResume(delay: 2.0);
+    }
+  }
+
+  void _scheduleMineChallengeResume({double delay = 1.5}) {
+    if (!isPlaying || _victoryTransitionTimer != null) return;
+    final timer = TimerComponent(
+      period: delay,
+      removeOnFinish: true,
+      onTick: () async {
+        _victoryTransitionTimer = null;
+        if (_standaloneMineChallenge) {
+          _victoryBanner?.removeFromParent();
+          _victoryBanner = null;
+          _bonusTally?.removeFromParent();
+          _bonusTally = null;
+          showHomeOverlayClean();
+          return;
+        }
+        await _resumeNextRound();
+      },
+    );
+    _victoryTransitionTimer = timer;
+    add(timer);
+  }
+
+  Future<void> _resumeNextRound() async {
+    _victoryBanner?.removeFromParent();
+    _victoryBanner = null;
+    _bonusTally?.removeFromParent();
+    _bonusTally = null;
+    _victoryTransitionTimer?.removeFromParent();
+    _victoryTransitionTimer = null;
+
+    final playerNeedsSpawn = !player.isMounted || player.isRemoving;
+    await _ensurePlayerMounted();
+    if (playerNeedsSpawn || !player.isAlive) {
+      player.revive();
+      player.position = _randomSafeSpawn();
+    }
+    await _spawnEnemy();
+    overlays.add('hud');
+    _pickupSpawnTimer = 0;
+    gm.levelBonus.value = 5000;
+    _bonusTickAccum = 0;
+    _levelTransitioning = false;
+  }
+
+  void _cancelRespawnTimer() {
+    _respawnTimer?.removeFromParent();
+    _respawnTimer = null;
+    _isRespawning = false;
+  }
+
+  void _clearMineChallenge() {
+    _mineChallengeController?.removeFromParent();
+    _mineChallengeController = null;
+    children.whereType<MineChallengeMine>().forEach(
+      (mine) => mine.removeFromParent(),
+    );
+    _mineChallengePending = false;
+    _mineChallengeActive = false;
+    _standaloneMineChallenge = false;
   }
 
   // Returns a random spawn position for the player that is not close to the enemy
@@ -459,9 +696,9 @@ class CycloneGame extends FlameGame
 
   void exitToHome() {
     final wasPlaying = isPlaying;
-    showHomeOverlayClean();
     // Transfer any remaining bonus before saving the run's score.
     _bonusTally?.flush();
+    showHomeOverlayClean();
     _bonusTally?.removeFromParent();
     _bonusTally = null;
     _victoryBanner?.removeFromParent();
@@ -477,6 +714,8 @@ class CycloneGame extends FlameGame
 
   /// Ensure Home overlay shows only the basic starfield and no audio.
   void showHomeOverlayClean() {
+    _clearMineChallenge();
+    _cancelRespawnTimer();
     isStartupDemo = false;
     isPlaying = false;
     _levelTransitioning = false;
@@ -487,12 +726,34 @@ class CycloneGame extends FlameGame
     if (player.isMounted) {
       player.removeFromParent();
     }
+    _gameOverBanner = null;
+    _victoryBanner = null;
+    _victoryTransitionTimer = null;
+    // Remove everything else (banners, effects, pickups, timers, intro
+    // fade/logo) so only the starfield remains behind the Home menu.
+    for (final c in children.toList()) {
+      if (c is Starfield ||
+          c is _GlobalKeyHandler ||
+          c is World ||
+          c is CameraComponent) {
+        continue;
+      }
+      c.removeFromParent();
+    }
+    _processLifecycleEventsSafely();
     // Stop any background audio
     // ignore: discarded_futures
     AudioManager.instance.stopBackgroundHum();
     // Mark paused and pause engine so only overlays remain visually (starfield is static dots)
     isPaused = true;
     pauseEngine();
+    // Render one clean frame (starfield only) so no stale gameplay visuals
+    // remain frozen on screen behind the Home menu.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (isPaused && !isPlaying && overlays.isActive('home')) {
+        stepEngine(stepTime: 0);
+      }
+    });
     // Overlays: leave only home
     overlays.remove('hud');
     overlays.remove('controls');
@@ -509,6 +770,7 @@ class CycloneGame extends FlameGame
   // Handle player being destroyed by enemy fire
   void onPlayerHit() {
     if (isStartupDemo) return; // no life loss during startup demo
+    if (_mineChallengeActive) return;
     if (_isRespawning || _levelTransitioning) return;
 
     // SFX: player ship destroyed
@@ -526,21 +788,20 @@ class CycloneGame extends FlameGame
     if (gm.lives.value > 0) {
       // Schedule respawn after 2 seconds at a random location
       _isRespawning = true;
-      add(
-        TimerComponent(
-          period: 2.0,
-          removeOnFinish: true,
-          onTick: () {
-            // Re-add player if needed and place safely
-            if (!player.isMounted) {
-              add(player);
-            }
-            player.revive();
-            player.position = _randomSafeSpawn();
-            _isRespawning = false;
-          },
-        ),
+      final timer = TimerComponent(
+        period: 2.0,
+        removeOnFinish: true,
+        onTick: () {
+          _respawnTimer = null;
+          // Re-add player if needed and place safely
+          _ensurePlayerMounted();
+          player.revive();
+          player.position = _randomSafeSpawn();
+          _isRespawning = false;
+        },
       );
+      _respawnTimer = timer;
+      add(timer);
     } else {
       // Game Over: remove enemy and show banner; starfield remains
       _showGameOver();
@@ -552,8 +813,14 @@ class CycloneGame extends FlameGame
     _removeAllEnemies();
     _removeAllProjectiles();
 
-    // Audio: play game over sting and stop background hum
-    AudioManager.instance.playGameOver();
+    // Audio: play game over sting after 1.5 seconds and stop background hum
+    add(
+      TimerComponent(
+        period: 1.5,
+        removeOnFinish: true,
+        onTick: AudioManager.instance.playGameOver,
+      ),
+    );
     // ignore: discarded_futures
     AudioManager.instance.stopBackgroundHum();
 
@@ -598,6 +865,8 @@ class CycloneGame extends FlameGame
 
   void resetGameState() {
     // Clear transitions
+    _clearMineChallenge();
+    _cancelRespawnTimer();
     _levelTransitioning = false;
     _isRespawning = false;
     isPlaying = false;
@@ -637,11 +906,16 @@ class CycloneGame extends FlameGame
     children.whereType<EnemyMainShot>().forEach((c) => c.removeFromParent());
     // Remove hazards and pickups
     children.whereType<SparkMine>().forEach((c) => c.removeFromParent());
+    children.whereType<MineChallengeMine>().forEach(
+      (c) => c.removeFromParent(),
+    );
     children.whereType<YummyPickup>().forEach((c) => c.removeFromParent());
   }
 
   // --- Spawners ------------------------------------------------------------
   void _maybeSpawnPickup() {
+    if (_mineChallengeActive) return;
+
     // Do not spam: limit concurrent pickups to 2
     final current = children.whereType<YummyPickup>().length;
     if (current >= 2) return;
@@ -667,6 +941,9 @@ class CycloneGame extends FlameGame
     // TripleAutoYummy after level > 19
     if (level > 19) {
       allowed.add(() => TripleAutoYummy());
+    }
+    if (level > 9 && !_mineChallengePending && !_mineChallengeActive) {
+      allowed.add(() => MineChallengeYummy());
     }
     // FlareYummy after level > 14
     if (level > 14) {
@@ -775,9 +1052,7 @@ class CycloneGame extends FlameGame
     await _spawnEnemy();
 
     // Place player at bottom-left and aim at center
-    if (!player.isMounted) {
-      await add(player);
-    }
+    await _ensurePlayerMounted();
     player.revive();
     final Vector2 pPos = Vector2(size.x * 0.18, size.y * 0.82);
     player.position = pPos;

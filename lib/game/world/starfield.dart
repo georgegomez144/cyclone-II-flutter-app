@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 /// Simple starfield rendering static white dots to simulate space.
 class Star extends PositionComponent {
   Star() : super(size: Vector2.all(1));
-  double alpha = 0.6 + math.Random().nextDouble() * 0.4; // 0.6..1.0
+  // Brightness reduced by 30% from the original 0.6..1.0 range.
+  static const double _brightnessScale = 0.7;
+  double alpha =
+      (0.6 + math.Random().nextDouble() * 0.4) * _brightnessScale; // 0.42..0.7
+  late final Paint _paint = Paint()..color = Colors.white.withOpacity(alpha);
 
   @override
   void render(Canvas canvas) {
-    final paint = Paint()..color = Colors.white.withOpacity(alpha);
-    canvas.drawRect(Offset.zero & const Size(2, 2), paint);
+    canvas.drawRect(Offset.zero & const Size(2, 2), _paint);
   }
 }
 

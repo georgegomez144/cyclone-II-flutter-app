@@ -346,8 +346,17 @@ class _ControlsOverlayState extends State<ControlsOverlay> {
 
   Widget _buildFireButton() {
     return GestureDetector(
-      onTap: () => widget.game.player.tryFire(),
-      onTapDown: (_) => widget.game.player.setUiFireHeld(true),
+      onTap: () {
+        if (!widget.game.isMineChallengeActive) {
+          widget.game.player.tryFire();
+        }
+      },
+      onTapDown: (_) {
+        widget.game.player.setUiFireHeld(true);
+        if (widget.game.isMineChallengeActive) {
+          widget.game.player.tryFire();
+        }
+      },
       onTapUp: (_) => widget.game.player.setUiFireHeld(false),
       onTapCancel: () => widget.game.player.setUiFireHeld(false),
       child: Material(

@@ -216,7 +216,7 @@ class _PlayerShip extends StatelessWidget {
           child: Transform.rotate(
             angle: -math.pi / 2, // point up
             child: Image.asset(
-              'lib/assets/ship_sprite_moving.png',
+              'lib/assets/ship_sprite_stationary.png',
               width: shipW,
               height: shipW,
               fit: BoxFit.contain,

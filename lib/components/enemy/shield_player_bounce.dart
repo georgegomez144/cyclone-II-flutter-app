@@ -19,6 +19,64 @@ class ShieldPlayerCollision {
 class ShieldPlayerBounce {
   static const double _epsilon = 1e-6;
 
+  static ShieldPlayerCollision? expelFromInterior({
+    required Vector2 center,
+    required double outerRadius,
+    required double angleOffset,
+    required int sides,
+    required Vector2 playerPosition,
+    required double playerRadius,
+    double margin = 2,
+  }) {
+    if (sides < 3) return null;
+
+    final segmentSize = 2 * math.pi / sides;
+    var closestEdgeDistance = double.negativeInfinity;
+    var closestEdgeIndex = -1;
+    var closestEdgeNormal = Vector2.zero();
+
+    for (var index = 0; index < sides; index++) {
+      final startAngle = angleOffset + index * segmentSize - math.pi / 2;
+      final endAngle = angleOffset + (index + 1) * segmentSize - math.pi / 2;
+      final start =
+          center +
+          Vector2(
+            outerRadius * math.cos(startAngle),
+            outerRadius * math.sin(startAngle),
+          );
+      final end =
+          center +
+          Vector2(
+            outerRadius * math.cos(endAngle),
+            outerRadius * math.sin(endAngle),
+          );
+      final edge = end - start;
+      if (edge.length2 == 0) continue;
+
+      final outward = Vector2(edge.y, -edge.x).normalized();
+      final signedDistance = (playerPosition - start).dot(outward);
+      if (signedDistance > closestEdgeDistance) {
+        closestEdgeDistance = signedDistance;
+        closestEdgeIndex = index;
+        closestEdgeNormal = outward;
+      }
+    }
+
+    if (closestEdgeIndex < 0 || closestEdgeDistance > _epsilon) return null;
+
+    final contactPoint =
+        playerPosition - closestEdgeNormal * closestEdgeDistance;
+    final separation = playerRadius + margin;
+    return ShieldPlayerCollision(
+      segmentIndex: closestEdgeIndex,
+      normal: closestEdgeNormal,
+      correctedPosition:
+          playerPosition +
+          closestEdgeNormal * (separation - closestEdgeDistance),
+      contactPoint: contactPoint,
+    );
+  }
+
   static ShieldPlayerCollision? resolve({
     required Vector2 center,
     required double outerRadius,

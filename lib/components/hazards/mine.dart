@@ -8,6 +8,8 @@ import 'package:flame/collisions.dart';
 import 'package:flutter/material.dart';
 import 'package:cyclone_game/game/audio_manager.dart';
 import 'package:cyclone_game/components/enemy/shield_system.dart';
+import 'package:cyclone_game/components/effects/mine_sparks.dart';
+import 'package:cyclone_game/components/effects/mine_explosion_sparks.dart';
 
 /// Spark mine that slowly moves around and homes toward the player's ship.
 /// It can get caught on the enemy's shield rings and orbit until it finds
@@ -34,6 +36,7 @@ class SparkMine extends SpriteComponent
   Future<void> onLoad() async {
     await super.onLoad();
     sprite = await Sprite.load('spark_mine_sprite.png');
+    add(MineSparks(radius: size.x / 2)..position = size / 2);
     // Add a passive hitbox so player bullets can collide with and destroy the mine
     add(
       CircleHitbox.relative(0.9, parentSize: size)
@@ -69,6 +72,7 @@ class SparkMine extends SpriteComponent
       // Small spark effect and destroy the mine
       final spark = _SparkEffect()..position = position.clone();
       gameRef.add(spark);
+      gameRef.add(MineExplosionSparks()..position = position.clone());
       removeFromParent();
     }
   }
@@ -181,7 +185,7 @@ class SparkMine extends SpriteComponent
     }
 
     // Spin slowly for effect
-    angle += 1.0 * dt;
+    angle += kMineSpinSpeed * dt;
 
     // Screen clamp (bounce softly)
     final s = gameRef.size;
@@ -205,6 +209,7 @@ class SparkMine extends SpriteComponent
       // Small explosion flash
       final spark = _SparkEffect()..position = position.clone();
       gameRef.add(spark);
+      gameRef.add(MineExplosionSparks()..position = position.clone());
       removeFromParent();
     }
   }

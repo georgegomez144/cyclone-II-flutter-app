@@ -139,20 +139,30 @@ class EnemyShield extends PositionComponent with HasGameRef<CycloneGame> {
             : identical(ring, redRing)
             ? orangeApothem
             : null;
-        final collision = ShieldPlayerBounce.resolve(
-          center: enemy.position,
-          outerRadius: ring.outerRadius,
-          angleOffset: ring.angleOffset,
-          destroyedSegments: List.generate(
-            ShieldRing.sides,
-            ring.isSegmentDestroyed,
-          ),
-          playerPosition: player.position,
-          previousPlayerPosition: previousPosition,
-          playerRadius: player.size.x * 0.3,
-          velocity: player.velocity,
-          solidInnerRadius: solidInnerRadius,
-        );
+        final collision =
+            ShieldPlayerBounce.resolve(
+              center: enemy.position,
+              outerRadius: ring.outerRadius,
+              angleOffset: ring.angleOffset,
+              destroyedSegments: identical(ring, redRing)
+                  ? List<bool>.filled(ShieldRing.sides, false)
+                  : List.generate(ShieldRing.sides, ring.isSegmentDestroyed),
+              playerPosition: player.position,
+              previousPlayerPosition: previousPosition,
+              playerRadius: player.size.x * 0.3,
+              velocity: player.velocity,
+              solidInnerRadius: solidInnerRadius,
+            ) ??
+            (identical(ring, redRing)
+                ? ShieldPlayerBounce.expelFromInterior(
+                    center: enemy.position,
+                    outerRadius: ring.outerRadius,
+                    angleOffset: ring.angleOffset,
+                    sides: ShieldRing.sides,
+                    playerPosition: player.position,
+                    playerRadius: player.size.x * 0.3,
+                  )
+                : null);
         if (collision == null) continue;
 
         player.position = collision.correctedPosition;
@@ -327,7 +337,27 @@ class ShieldRing extends PositionComponent {
     _flashDurations[index] = duration;
   }
 
-  void hitSegment(int index) {
+  List<Vector2> segmentEndpoints(int index) {
+    RangeError.checkValidIndex(index, _segments, 'index');
+    final segmentSize = 2 * math.pi / sides;
+    final nextIndex = (index + 1) % sides;
+    final startAngle = angleOffset + index * segmentSize - math.pi / 2;
+    final endAngle = angleOffset + nextIndex * segmentSize - math.pi / 2;
+    return [
+      Vector2(
+        outerRadius * math.cos(startAngle),
+        outerRadius * math.sin(startAngle),
+      ),
+      Vector2(
+        outerRadius * math.cos(endAngle),
+        outerRadius * math.sin(endAngle),
+      ),
+    ];
+  }
+
+  bool hitSegment(int index) {
+    if (index < 0 || index >= sides) return false;
+    if (_segments[index] == ShieldSegmentState.destroyed) return false;
     flashSegment(index);
     final s = _segments[index];
     if (s == ShieldSegmentState.healthy) {
@@ -339,7 +369,9 @@ class ShieldRing extends PositionComponent {
       if (_segments.every((e) => e == ShieldSegmentState.destroyed)) {
         resetAll();
       }
+      return true;
     }
+    return false;
   }
 
   void resetAll() {

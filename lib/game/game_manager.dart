@@ -39,6 +39,7 @@ class GameManager {
   final score = ValueNotifier<int>(0);
   final lives = ValueNotifier<int>(3);
   final shields = ValueNotifier<double>(100);
+  final playerShield = ValueNotifier<double>(0);
   final currentLevel = ValueNotifier<int>(1);
   // Player firing mode for HUD
   final currentBulletMode = ValueNotifier<BulletMode>(BulletMode.single);
@@ -213,6 +214,7 @@ class GameManager {
     score.value = 0;
     lives.value = 3;
     shields.value = 100;
+    playerShield.value = 0;
     currentLevel.value = 1;
 
     // Reset HUD + weapon/power-up model state

@@ -77,6 +77,13 @@ class _HomeMenuState extends State<HomeMenu> {
                               },
                             ),
                             _redButton(
+                              label: 'Mine Challenge',
+                              onPressed: () async {
+                                await gm.savePrefs();
+                                await widget.game.startMineChallengeGame();
+                              },
+                            ),
+                            _redButton(
                               label: 'Instructions',
                               onPressed: () {
                                 widget.game.overlays.remove('home');

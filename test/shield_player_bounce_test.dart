@@ -114,6 +114,68 @@ void main() {
       expect(collision, isNull);
     });
 
+    test('expels a ship from the center of the polygon', () {
+      final collision = ShieldPlayerBounce.expelFromInterior(
+        center: Vector2.zero(),
+        outerRadius: radius,
+        angleOffset: 0,
+        sides: 12,
+        playerPosition: Vector2.zero(),
+        playerRadius: playerRadius,
+        margin: margin,
+      );
+
+      expect(collision, isNotNull);
+      expect(collision!.correctedPosition.length, greaterThan(radius));
+      expect(
+        collision.correctedPosition.distanceTo(collision.contactPoint),
+        closeTo(playerRadius + margin, 1e-5),
+      );
+      expect(
+        collision.normal.dot(outwardNormal(collision.segmentIndex)),
+        closeTo(1, 1e-6),
+      );
+    });
+
+    test('expels a deeply interior ship beyond the nearest polygon edge', () {
+      final position = Vector2(10, -5);
+      final collision = ShieldPlayerBounce.expelFromInterior(
+        center: Vector2.zero(),
+        outerRadius: radius,
+        angleOffset: 0,
+        sides: 12,
+        playerPosition: position,
+        playerRadius: playerRadius,
+        margin: margin,
+      );
+
+      expect(collision, isNotNull);
+      expect(
+        (collision!.correctedPosition - collision.contactPoint).dot(
+          collision.normal,
+        ),
+        closeTo(playerRadius + margin, 1e-5),
+      );
+      expect(
+        collision.correctedPosition.distanceTo(Vector2.zero()),
+        greaterThan(radius),
+      );
+    });
+
+    test('does not expel a ship outside the polygon', () {
+      final collision = ShieldPlayerBounce.expelFromInterior(
+        center: Vector2.zero(),
+        outerRadius: radius,
+        angleOffset: 0,
+        sides: 12,
+        playerPosition: Vector2(0, -radius - 20),
+        playerRadius: playerRadius,
+        margin: margin,
+      );
+
+      expect(collision, isNull);
+    });
+
     test(
       'reverses head-on velocity while preserving tangential glancing speed',
       () {

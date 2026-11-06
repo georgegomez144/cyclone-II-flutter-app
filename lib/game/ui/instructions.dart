@@ -254,6 +254,16 @@ class InstructionsOverlay extends StatelessWidget {
                         ),
                         SizedBox(height: 10),
                         _SpriteRow(
+                          label: 'Mine Challenge',
+                          icon: Icons.bolt,
+                          assetPath: 'lib/assets/yummy_sprite.png',
+                          colorTint: Color(0xFFE040FB),
+                          description:
+                              'Available after level 9. After your next win, dodge or destroy 20 incoming mines for a 2000-point bonus.',
+                          animate: _Anim.wiggle,
+                        ),
+                        SizedBox(height: 10),
+                        _SpriteRow(
                           label: 'Triple Auto (Timed)',
                           icon: Icons.workspaces,
                           assetPath: 'lib/assets/yummy_sprite.png',
@@ -281,6 +291,17 @@ class InstructionsOverlay extends StatelessWidget {
                             fontStyle: FontStyle.italic,
                             height: 1.35,
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const _Section(
+                      title: 'Mine Challenge',
+                      children: [
+                        Text(
+                          'You can start a standalone Mine Challenge from the main menu, or collect the purple yummy and win your current round. Your ship starts at the center as 20 mines arrive one at a time from off-screen. Dodge or shoot them. Destroy all 20 to earn 2000 bonus points; one hit ends the challenge with no bonus and no life lost. No yummies spawn during the challenge, and normal play resumes afterward.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.amber, height: 1.35),
                         ),
                       ],
                     ),
