@@ -2,7 +2,8 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:cyclone_game/game/cyclone_game.dart';
-import 'package:cyclone_game/components/enemy/enemy_sprite.dart';
+import 'package:cyclone_game/components/enemy/shield_fire_solver.dart';
+import 'package:cyclone_game/components/player/player_bullet_sweep.dart';
 import 'package:cyclone_game/components/effects/explosion.dart';
 import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
 import 'package:cyclone_game/game/audio_manager.dart';
@@ -36,9 +37,55 @@ class PlayerBullet extends PositionComponent
   @override
   void update(double dt) {
     super.update(dt);
+    if (consumed || isRemoving) return;
 
-    // Move forward
+    final previousPosition = position.clone();
     position += velocity.normalized() * speed * dt;
+
+    final enemy = gameRef.enemy;
+    final shield = enemy?.shield;
+    if (enemy != null && enemy.isMounted) {
+      final rings = shield != null && shield.isLoaded
+          ? [shield.redRing, shield.orangeRing, shield.yellowRing]
+                .map(
+                  (ring) => ShieldRingSnapshot(
+                    outerRadius: ring.outerRadius,
+                    innerRadius: ring.innerRadius,
+                    angleOffset: ring.angleOffset,
+                    angularVelocity: ring.angularVelocity,
+                    destroyedSegments: ring.destroyedSegments,
+                  ),
+                )
+                .toList(growable: false)
+          : const <ShieldRingSnapshot>[];
+      final hit = PlayerBulletSweep.firstHit(
+        from: previousPosition,
+        to: position,
+        center: enemy.position,
+        rings: rings,
+        bulletRadius: size.x / 2,
+        coreRadius: enemy.coreRadius,
+      );
+      if (hit != null) {
+        consumed = true;
+        if (hit.isCore) {
+          final boom = Explosion()..position = enemy.position.clone();
+          gameRef.add(boom);
+          gameRef.onEnemyDefeated();
+        } else {
+          final activeShield = shield!;
+          final ring = [
+            activeShield.redRing,
+            activeShield.orangeRing,
+            activeShield.yellowRing,
+          ][hit.ringIndex!];
+          ring.hitSegment(hit.segmentIndex!);
+          gameRef.gm.addScore(5);
+        }
+        removeFromParent();
+        return;
+      }
+    }
 
     // Screen wrap-around (like the player)
     final s = gameRef.size;
@@ -62,24 +109,9 @@ class PlayerBullet extends PositionComponent
     PositionComponent other,
   ) {
     super.onCollisionStart(intersectionPoints, other);
-    // If this bullet has already been consumed by a shield segment, ignore.
+    // If the swept collision check already consumed this bullet, ignore it.
     if (consumed || isRemoving) return;
-    if (other is EnemySprite) {
-      // Only destroy enemy if there are aligned gaps through all rings
-      final canHitCore = other.hasAlignedGapsToward(position);
-      if (canHitCore) {
-        // Spawn explosion at enemy position
-        final boom = Explosion()..position = other.position.clone();
-        gameRef.add(boom);
-        // Notify game of victory and remove enemy
-        gameRef.onEnemyDefeated();
-        // Despawn this bullet
-        consumed = true;
-        removeFromParent();
-      } else {
-        // Otherwise, the shield should intercept the bullet; do nothing here.
-      }
-    } else if (other is YummyPickup) {
+    if (other is YummyPickup) {
       // Player bullets can destroy yummies; do not grant their effect.
       if (!other.isRemoving) {
         // SFX: yummy destroyed / discarded by shot

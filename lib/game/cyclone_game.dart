@@ -60,6 +60,7 @@ class CycloneGame extends FlameGame
   late final Starfield starfield;
   EnemySprite? enemy;
   bool _levelTransitioning = false;
+  bool get isLevelTransitioning => _levelTransitioning;
   bool _isRespawning = false;
   TextComponent? _gameOverBanner;
   TextComponent? _victoryBanner;

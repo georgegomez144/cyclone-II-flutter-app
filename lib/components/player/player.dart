@@ -24,6 +24,8 @@ class Player extends PositionComponent
 
   // Lifecycle
   bool isAlive = true;
+  bool get canFire => isAlive && isMounted && !gameRef.isLevelTransitioning;
+
   // Power-ups
   bool hasContinuousFire = false; // hold to auto-fire
   bool hasTripleSpread = false; // fire 3-way spread
@@ -442,7 +444,7 @@ class Player extends PositionComponent
 
   // Fire a single shot forward from the tip
   void tryFire() {
-    if (!isAlive) return;
+    if (!canFire) return;
 
     // Throttle using shared cooldown and capacity
     // Capacity caps by mode
@@ -495,7 +497,7 @@ class Player extends PositionComponent
 
   // Fire up to 3 inline bullets from the tip
   void tryFireBurst() {
-    if (!isAlive) return;
+    if (!canFire) return;
     if (_cooldown > 0) return;
     if (_activeBullets >= 3) return;
 
@@ -525,7 +527,7 @@ class Player extends PositionComponent
 
   // Fire exactly one bullet immediately, ignoring cooldown and bullet caps.
   void fireSingleNoLimit() {
-    if (!isAlive) return;
+    if (!canFire) return;
     final dir = Vector2(0, -1)..rotate(angle);
     _spawnBullet(dir, offsetAlongNose: -15);
   }

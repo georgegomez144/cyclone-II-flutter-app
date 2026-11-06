@@ -2,10 +2,8 @@ import 'dart:math' as math;
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
-import 'package:cyclone_game/components/player/player_bullet.dart';
 import 'package:cyclone_game/components/pickups/yummy_pickup.dart';
 import 'package:cyclone_game/components/hazards/mine.dart';
-import 'package:cyclone_game/components/enemy/enemy_blast.dart';
 import 'package:cyclone_game/components/enemy/shield_fire_solver.dart';
 import 'package:cyclone_game/components/enemy/shield_player_bounce.dart';
 import 'package:cyclone_game/components/enemy/shield_ring_geometry.dart';
@@ -314,6 +312,9 @@ class ShieldRing extends PositionComponent {
       index < sides &&
       _segments[index] == ShieldSegmentState.destroyed;
 
+  List<bool> get destroyedSegments =>
+      List.generate(sides, isSegmentDestroyed, growable: false);
+
   // Trigger a brief flash on the segment aligned with worldAngle
   void flashAtAngle(double worldAngle, {double duration = 0.12}) {
     flashSegment(segmentIndexAt(worldAngle), duration: duration);
@@ -327,6 +328,7 @@ class ShieldRing extends PositionComponent {
   }
 
   void hitSegment(int index) {
+    flashSegment(index);
     final s = _segments[index];
     if (s == ShieldSegmentState.healthy) {
       _segments[index] = ShieldSegmentState.weakened;
@@ -488,14 +490,14 @@ class ShieldRing extends PositionComponent {
   }
 }
 
-// Collider polygon approximating a ring edge section; intercepts bullets and bounces players via parent bounce rings
+// Collider polygon approximating a ring edge section for pickups and mines.
 class _ShieldSegmentCollider extends PositionComponent with CollisionCallbacks {
   _ShieldSegmentCollider(this.ring, this.index)
     : super(size: Vector2.zero(), anchor: Anchor.center);
 
   final ShieldRing ring;
   final int index;
-  late PolygonHitbox _hitbox;
+  late _ShieldSegmentHitbox _hitbox;
   bool _active = true;
 
   @override
@@ -506,7 +508,7 @@ class _ShieldSegmentCollider extends PositionComponent with CollisionCallbacks {
 
   void _buildHitbox() {
     // Build points at current angleOffset in local coordinates (absolute units)
-    _hitbox = PolygonHitbox(_quadForIndex(index, ring.angleOffset))
+    _hitbox = _ShieldSegmentHitbox(_quadForIndex(index, ring.angleOffset))
       ..collisionType = CollisionType.passive;
     add(_hitbox);
   }
@@ -545,14 +547,7 @@ class _ShieldSegmentCollider extends PositionComponent with CollisionCallbacks {
   @override
   void update(double dt) {
     super.update(dt);
-    // Rebuild the shape to follow spin
-    if (children.isNotEmpty) {
-      remove(_hitbox);
-    }
-    _hitbox = PolygonHitbox(
-      _quadForIndex(index, ring.angleOffset),
-    )..collisionType = _active ? CollisionType.passive : CollisionType.inactive;
-    add(_hitbox);
+    _hitbox.setVertices(_quadForIndex(index, ring.angleOffset));
   }
 
   void setActive(bool v) {
@@ -568,70 +563,7 @@ class _ShieldSegmentCollider extends PositionComponent with CollisionCallbacks {
     super.onCollisionStart(intersectionPoints, other);
     if (!_active) return;
 
-    // Helper: world-space center of the enemy (EnemySprite)
-    Vector2 center = Vector2.zero();
-    final rp = ring.parent;
-    if (rp is PositionComponent) {
-      final gp = rp.parent;
-      if (gp is PositionComponent) {
-        center = gp.position.clone();
-      }
-    }
-
-    if (other is PlayerBullet) {
-      if (other.consumed) return;
-      // Angle from enemy center toward the collision (use bullet position if no points)
-      final impact = (intersectionPoints.isNotEmpty)
-          ? intersectionPoints.first
-          : other.position;
-      final worldAngle = math.atan2(
-        (impact.y - center.y),
-        (impact.x - center.x),
-      );
-
-      // Enforce outer-to-inner gating: you cannot damage inner rings unless
-      // the corresponding outer rings have an opening at the same angle.
-      bool canDamage = false;
-      final parentShield = rp is EnemyShield ? rp : null;
-      if (parentShield != null) {
-        if (identical(ring, parentShield.redRing)) {
-          // Red (outermost) can always be damaged
-          canDamage = true;
-        } else if (identical(ring, parentShield.orangeRing)) {
-          // Orange requires a hole through red at this angle
-          canDamage = parentShield.redRing.isAngleOpen(worldAngle);
-        } else if (identical(ring, parentShield.yellowRing)) {
-          // Yellow requires holes through red and orange at this angle
-          final openRed = parentShield.redRing.isAngleOpen(worldAngle);
-          final openOrange = parentShield.orangeRing.isAngleOpen(worldAngle);
-          canDamage = openRed && openOrange;
-        }
-      }
-
-      // Consume bullet so it can't hit multiple segments this frame
-      other.consumed = true;
-      other.removeFromParent();
-
-      if (canDamage) {
-        // Award points only when actual damage is applied
-        other.gameRef.gm.addScore(5);
-        ring.hitSegment(index);
-      } else {
-        // Blocked: flash feedback on the impacted segment only
-        ring.flashAtAngle(worldAngle);
-      }
-    } else if (other is EnemyBlast) {
-      // Enemy blasts cannot pass through intact segments; remove them and flash.
-      final impact = (intersectionPoints.isNotEmpty)
-          ? intersectionPoints.first
-          : other.position;
-      final worldAngle = math.atan2(
-        (impact.y - center.y),
-        (impact.x - center.x),
-      );
-      ring.flashAtAngle(worldAngle, duration: 0.08);
-      other.removeFromParent();
-    } else if (other is YummyPickup) {
+    if (other is YummyPickup) {
       // Destroy yummies when they touch the shield ring (no effect granted)
       if (!other.isRemoving) {
         other.removeFromParent();
@@ -641,5 +573,13 @@ class _ShieldSegmentCollider extends PositionComponent with CollisionCallbacks {
       // No action here: allow the mine to keep moving; its own logic will
       // detect proximity to ring radii and orbit until it finds an opening.
     }
+  }
+}
+
+class _ShieldSegmentHitbox extends PolygonHitbox {
+  _ShieldSegmentHitbox(super.vertices);
+
+  void setVertices(List<Vector2> vertices) {
+    refreshVertices(newVertices: vertices);
   }
 }

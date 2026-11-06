@@ -22,6 +22,8 @@ class EnemySprite extends SpriteComponent with HasGameRef<CycloneGame> {
 
   EnemyShield? get shield => _shield;
 
+  double get coreRadius => 0.35 * size.x;
+
   // Turning/aiming
   final double _baseTurnRate = 0.8; // rad/sec at level 1 (pretty slow)
   final double _turnRatePerLevel = 0.02; // small increase per level

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.18.4
+- Prevent the player ship from firing while the castle and rings respawn after victory.
+
+## 1.18.3
+- Ensure castle blasts pass through shield rings without being intercepted.
+- Prevent player bullets from passing through shield rings and ensure hits destroy the castle.
+
 ## 1.18.2
 - Keep the macOS HUD on a single row, scaling it down to fit narrow windows.
 

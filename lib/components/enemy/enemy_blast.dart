@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
   static Sprite? _cachedSprite;
   static Future<Sprite>? _spriteLoading;
-  // collision handled by shield colliders
+  // The collision hitbox supports pickup interactions; shield rings ignore blasts.
   EnemyBlast({
     required this.start,
     required this.direction,
@@ -76,7 +76,7 @@ class EnemyBlast extends SpriteComponent with HasGameRef<CycloneGame> {
     sprite = loadedSprite;
     // Tint sprite slightly toward the glow color for cohesion
     paint.color = _glowColor.withOpacity(0.9);
-    // Add a hitbox so shield segments can intercept blasts
+    // Keep collision callbacks available for pickup interactions.
     add(CircleHitbox()..collisionType = CollisionType.active);
   }
 
